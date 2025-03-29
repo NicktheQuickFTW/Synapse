@@ -12,6 +12,7 @@ const analysis = require('./analysis');
 const dbAdapter = require('./dbAdapter');
 const claudeAdapter = require('./claudeAdapter');
 const getMCPAdapter = require('./mcpAdapter');
+const clustering = require('./clustering');
 
 /**
  * Generate an optimized schedule based on provided constraints
@@ -274,4 +275,35 @@ exports.listSchedules = async (filters = {}) => {
  */
 exports.listConfigurations = async (filters = {}) => {
   return await dbAdapter.listConfigurations(filters);
+};
+
+/**
+ * Group teams by geographic region
+ * @param {Array} teams - List of teams
+ * @param {Object} options - Clustering options
+ * @returns {Array} Grouped team clusters
+ */
+exports.groupTeamsByRegion = (teams, options) => {
+  return clustering.groupTeamsByRegion(teams, options);
+};
+
+/**
+ * Schedule back-to-back road trips for a cluster of teams
+ * @param {Array} cluster - Cluster of teams
+ * @param {Object} schedule - Current schedule
+ * @param {Object} config - Configuration
+ * @returns {Object} Updated schedule with optimized trips
+ */
+exports.scheduleBackToBackRoadTrips = (cluster, schedule, config) => {
+  return clustering.scheduleBackToBackRoadTrips(cluster, schedule, config);
+};
+
+/**
+ * Calculate cluster score using dynamic weighting formula
+ * @param {Array} cluster - Cluster of teams
+ * @param {Object} options - Scoring options
+ * @returns {number} Cluster score
+ */
+exports.calculateClusterScore = (cluster, options) => {
+  return clustering.calculateClusterScore(cluster, options);
 }; 

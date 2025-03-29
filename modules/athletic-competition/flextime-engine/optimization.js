@@ -7,6 +7,7 @@
 const winston = require('winston');
 const logger = require('../../../shared/utils/logger');
 const distanceMatrixService = require('../services/distanceMatrixService');
+const clustering = require('./clustering');
 
 // Initialize logger
 const logger = winston.createLogger({
@@ -32,13 +33,20 @@ const logger = winston.createLogger({
 exports.optimizeSchedule = (schedule, config) => {
   logger.info('Starting schedule optimization', { sport: config.sport });
   
+  // Apply geographic clustering first if enabled
+  let optimizedSchedule = schedule;
+  
+  if (config.useGeographicClustering) {
+    optimizedSchedule = applyGeographicClustering(schedule, config);
+  }
+  
   // Setup optimization parameters
   const iterations = config.simulatedAnnealingIterations || 1000;
   const initialTemperature = 100;
   const coolingRate = 0.95;
   
   // Copy the schedule for optimization
-  let currentSchedule = deepCopy(schedule);
+  let currentSchedule = deepCopy(optimizedSchedule);
   
   // Calculate initial score
   let currentScore = calculateScheduleScore(currentSchedule, config);
@@ -806,4 +814,139 @@ async function optimize(schedule, config) {
   });
   
   return currentSchedule;
+}
+
+/**
+ * Apply geographic clustering to schedule
+ * @param {Object} schedule - Schedule to optimize
+ * @param {Object} config - Configuration object
+ * @returns {Object} Schedule with clustering applied
+ */
+function applyGeographicClustering(schedule, config) {
+  logger.info('Applying geographic clustering', { sport: config.sport });
+
+  // 1. Group teams by geographic region
+  const teams = config.teams || [];
+  
+  // Set up clustering options based on sport and configuration
+  const clusteringOptions = {
+    preferredPartners: true,
+    clusterRadius: getClusterRadiusBySport(config.sport),
+    balanceCompetitiveStrength: config.optimizationFactors?.competitiveBalance > 0.5,
+    allowStrategicOutliers: config.allowStrategicOutliers || false,
+  };
+  
+  // Add preferred partnerships if available
+  if (config.protectedRivalries && config.protectedRivalries.length > 0) {
+    clusteringOptions.preferredPartnerships = config.protectedRivalries.map(rivalry => ({
+      team1: rivalry.team1,
+      team2: rivalry.team2
+    }));
+  }
+  
+  // Add special constraints
+  if (config.constraints && config.constraints.length > 0) {
+    clusteringOptions.specialConstraints = [];
+    
+    // Process religious policy constraints
+    const religiousConstraints = config.constraints.filter(c => 
+      c.type === 'no_sunday_competition' || c.type === 'religious_policy'
+    );
+    
+    religiousConstraints.forEach(constraint => {
+      const teamId = constraint.teamId;
+      
+      // Set up preferred partners based on constraint
+      let preferredPartners = [];
+      
+      if (config.sport === 'basketball' && teamId === 'team1') { // BYU
+        // For BYU basketball, prefer Utah/Colorado
+        preferredPartners = ['team9', 'team10']; // Utah/Colorado team IDs
+      }
+      
+      clusteringOptions.specialConstraints.push({
+        type: 'religious_policy',
+        teamId: teamId,
+        preferredPartners: preferredPartners
+      });
+    });
+    
+    // Process venue sharing constraints
+    const venueConstraints = config.constraints.filter(c => c.type === 'venue_sharing');
+    
+    venueConstraints.forEach(constraint => {
+      clusteringOptions.specialConstraints.push({
+        type: 'venue_sharing',
+        teamIds: [constraint.team1Id, constraint.team2Id]
+      });
+    });
+    
+    // Process high travel cost constraints
+    const highTravelTeams = ['team7']; // West Virginia
+    
+    highTravelTeams.forEach(teamId => {
+      clusteringOptions.specialConstraints.push({
+        type: 'travel_cost',
+        teamId: teamId,
+        // For basketball, pair West Virginia with Cincinnati/UCF
+        preferredPartners: ['team6', 'team8'] // Cincinnati/UCF team IDs
+      });
+    });
+  }
+  
+  // Add team strengths if using competitive balance
+  if (clusteringOptions.balanceCompetitiveStrength && config.teamStrengths) {
+    clusteringOptions.teamStrengths = config.teamStrengths;
+  }
+  
+  // Get clusters
+  const clusters = clustering.groupTeamsByRegion(teams, clusteringOptions);
+  
+  // 2. For each cluster, schedule back-to-back road trips
+  let clusterOptimizedSchedule = deepCopy(schedule);
+  
+  clusters.forEach((cluster, index) => {
+    if (cluster.length >= 2) { // Only process valid clusters
+      logger.debug(`Processing cluster ${index + 1} with ${cluster.length} teams`);
+      clusterOptimizedSchedule = clustering.scheduleBackToBackRoadTrips(
+        cluster, 
+        clusterOptimizedSchedule, 
+        config
+      );
+    }
+  });
+  
+  // 3. Evaluate and log improvement
+  const originalTravelScore = calculateTravelEfficiency(schedule, config);
+  const optimizedTravelScore = calculateTravelEfficiency(clusterOptimizedSchedule, config);
+  
+  const improvement = ((optimizedTravelScore - originalTravelScore) / originalTravelScore) * 100;
+  
+  logger.info('Geographic clustering applied', {
+    clusterCount: clusters.length,
+    originalTravelScore: originalTravelScore.toFixed(2),
+    optimizedTravelScore: optimizedTravelScore.toFixed(2),
+    improvement: `${improvement.toFixed(2)}%`
+  });
+  
+  return clusterOptimizedSchedule;
+}
+
+/**
+ * Get appropriate cluster radius by sport
+ * @param {string} sport - Sport name
+ * @returns {number} Radius in miles
+ */
+function getClusterRadiusBySport(sport) {
+  // Different sports have different cluster radii
+  const sportRadii = {
+    'basketball': 300,  // Basketball: 300 miles
+    'football': 500,    // Football: 500 miles (less frequent games)
+    'baseball': 250,    // Baseball: 250 miles (series play)
+    'volleyball': 300,  // Volleyball: 300 miles
+    'soccer': 300,      // Soccer: 300 miles
+    'wrestling': 350    // Wrestling: 350 miles
+  };
+  
+  return sportRadii[sport.toLowerCase()] || 300; // Default to 300 miles
 } 
