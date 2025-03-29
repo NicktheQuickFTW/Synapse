@@ -1,3 +1,57 @@
 {
-  "mcpServers": {}
+  "mcpServers": {
+    "claude-mcp": {
+      "server": {
+        "name": "claude-mcp",
+        "version": "1.0.0",
+        "description": "MCP server for Claude API integration",
+        "url": "https://api.anthropic.com/v1"
+      },
+      "tools": {
+        "completeText": {
+          "description": "Basic text completion with Claude",
+          "parameters": {
+            "prompt": "string",
+            "model": {
+              "type": "string",
+              "default": "claude-3-sonnet-20240229"
+            }
+          },
+          "returns": {
+            "completion": "string",
+            "model": "string",
+            "usage": "object"
+          }
+        },
+        "analyzeDocument": {
+          "description": "Analyze document content with Claude",
+          "parameters": {
+            "content": "string",
+            "analysisType": {
+              "type": "string",
+              "enum": ["summary", "key_points", "sentiment"]
+            },
+            "model": {
+              "type": "string",
+              "default": "claude-3-opus-20240229"
+            }
+          },
+          "returns": {
+            "analysis": "string",
+            "model": "string"
+          }
+        }
+      },
+      "prompts": {
+        "documentAnalysis": {
+          "description": "Analyze a document with Claude",
+          "template": "{{content}}\n\n<analysis_request>\nPlease provide a {{analysisType}} of the above content.\n</analysis_request>"
+        }
+      },
+      "auth": {
+        "type": "bearer",
+        "token": "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"
+      }
+    }
+  }
 } 
