@@ -13,7 +13,10 @@
     "tennis": "node tennis-server.js",
     "ai": "node ai-server.js",
     "python-bridge": "node python-bridge.js",
-    "start:all": "concurrently \"npm run mcp\" \"npm run gateway\" \"npm run tennis\" \"npm run ai\" \"npm run python-bridge\" \"npm run monitor\""
+    "start:all": "concurrently \"npm run mcp\" \"npm run gateway\" \"npm run tennis\" \"npm run ai\" \"npm run python-bridge\" \"npm run monitor\"",
+    "register-big12-agents": "node scripts/register-big12-agents.js",
+    "manual-register-agent": "node scripts/manual-agent-register.js",
+    "update-mbb-agent": "node scripts/update-agent-name.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
@@ -40,6 +43,7 @@
     "prom-client": "^15.1.3",
     "redis": "^4.7.0",
     "socket.io": "^4.8.1",
+    "uuid": "^11.1.0",
     "winston": "^3.17.0",
     "zod": "^3.24.2"
   },
