@@ -8,9 +8,12 @@ const knex = require('knex')({
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
-    ssl: {
-      rejectUnauthorized: false // Required for some cloud database providers
-    }
+    ssl: process.env.DB_SSL === 'true' ? {
+      rejectUnauthorized: false,
+      ca: process.env.DB_SSL_CA,
+      key: process.env.DB_SSL_KEY,
+      cert: process.env.DB_SSL_CERT
+    } : false
   },
   pool: {
     min: 2,
@@ -29,6 +32,13 @@ knex.raw('SELECT 1')
   })
   .catch((error) => {
     console.error('Error connecting to the database:', error);
+    console.error('Connection details:', {
+      host: process.env.DB_HOST,
+      port: process.env.DB_PORT,
+      user: process.env.DB_USER,
+      database: process.env.DB_NAME,
+      ssl: process.env.DB_SSL
+    });
     process.exit(1);
   });
 
