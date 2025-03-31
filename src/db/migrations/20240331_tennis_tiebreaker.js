@@ -1,43 +1,39 @@
 exports.up = function(knex) {
   return knex.schema
-    .createTable('tennis_standings', table => {
+    .createTable('tennis_standings', function(table) {
       table.increments('id').primary();
       table.string('team_name').notNullable();
-      table.integer('wins').notNullable();
-      table.integer('losses').notNullable();
-      table.decimal('win_pct', 4, 3).notNullable();
-      table.integer('ita_rank').notNullable();
-      table.timestamp('created_at').defaultTo(knex.fn.now());
-      table.timestamp('updated_at').defaultTo(knex.fn.now());
+      table.integer('wins').defaultTo(0);
+      table.integer('losses').defaultTo(0);
+      table.decimal('win_pct', 4, 3).defaultTo(0);
+      table.integer('ita_rank');
+      table.timestamps(true, true);
     })
-    .createTable('tennis_matches', table => {
+    .createTable('tennis_matches', function(table) {
       table.increments('id').primary();
       table.string('home_team').notNullable();
       table.string('away_team').notNullable();
-      table.date('match_date').notNullable();
-      table.string('location').notNullable();
-      table.string('winner').nullable();
-      table.timestamp('created_at').defaultTo(knex.fn.now());
-      table.timestamp('updated_at').defaultTo(knex.fn.now());
+      table.date('match_date');
+      table.string('location');
+      table.string('winner');
+      table.timestamps(true, true);
     })
-    .createTable('tennis_head_to_head', table => {
+    .createTable('tennis_head_to_head', function(table) {
       table.increments('id').primary();
       table.string('team1').notNullable();
       table.string('team2').notNullable();
       table.string('winner').notNullable();
-      table.timestamp('created_at').defaultTo(knex.fn.now());
-      table.timestamp('updated_at').defaultTo(knex.fn.now());
+      table.timestamps(true, true);
     })
-    .createTable('tennis_seedings', table => {
+    .createTable('tennis_seedings', function(table) {
       table.increments('id').primary();
       table.integer('seed').notNullable();
       table.string('team').notNullable();
-      table.string('record').notNullable();
-      table.decimal('win_pct', 4, 3).notNullable();
-      table.string('tiebreaker').nullable();
-      table.json('scenario_data').nullable();
-      table.timestamp('created_at').defaultTo(knex.fn.now());
-      table.timestamp('updated_at').defaultTo(knex.fn.now());
+      table.string('record');
+      table.decimal('win_pct', 4, 3);
+      table.string('tiebreaker');
+      table.jsonb('scenario_data');
+      table.timestamps(true, true);
     });
 };
 

@@ -1,4 +1,5 @@
 require('dotenv').config();
+const path = require('path');
 
 const knex = require('knex')({
   client: 'pg',
@@ -21,7 +22,7 @@ const knex = require('knex')({
   },
   migrations: {
     tableName: 'knex_migrations',
-    directory: './migrations'
+    directory: path.join(__dirname, 'migrations')
   }
 });
 
