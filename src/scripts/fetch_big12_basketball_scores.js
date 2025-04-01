@@ -1,27 +1,8 @@
 const knex = require('../config/database');
 const moment = require('moment');
 const cheerio = require('cheerio');
+const BIG12_TEAMS = require('../config/big12_basketball');
 require('dotenv').config();
-
-// Mapping of Big 12 teams to their schedule IDs
-const BIG12_TEAMS = {
-    'Arizona': '5043',
-    'Arizona State': '5044',
-    'Baylor': '5047',
-    'BYU': '5045',
-    'Cincinnati': '5048',
-    'Colorado': '5049',
-    'Houston': '5050',
-    'Iowa State': '5051',
-    'Kansas': '5052',
-    'Kansas State': '5068',
-    'Oklahoma State': '5054',
-    'TCU': '5055',
-    'Texas Tech': '5056',
-    'UCF': '5046',
-    'Utah': '5088',
-    'West Virginia': '5058'
-};
 
 async function fetchTeamSchedule(teamName, scheduleId) {
     try {
@@ -56,7 +37,7 @@ async function fetchTeamSchedule(teamName, scheduleId) {
         let gamesPlayed = 0;
 
         // Find the schedule table
-        $('table.schedule-table tr').each((_, row) => {
+        $('table tr').each((_, row) => {
             const $row = $(row);
             const date = $row.find('td:first-child').text().trim();
             const opponent = $row.find('td:nth-child(2)').text().trim();
@@ -64,8 +45,13 @@ async function fetchTeamSchedule(teamName, scheduleId) {
             const location = $row.find('td:nth-child(4)').text().trim();
             const result = $row.find('td:last-child').text().trim();
 
-            if (date && opponent && result) {
-                // Parse result (e.g., "W 75-70" or "L 68-72")
+            if (date && opponent && result && result !== 'Postponed' && result !== 'Cancelled') {
+                // Skip future games that only have times
+                if (result.includes(':') && !result.includes('W') && !result.includes('L')) {
+                    return;
+                }
+
+                // Parse result (e.g., "W 85-72" or "L 68-75")
                 const resultParts = result.split(' ');
                 const isWin = resultParts[0] === 'W';
                 let points = 0;
@@ -78,11 +64,32 @@ async function fetchTeamSchedule(teamName, scheduleId) {
                 }
 
                 if (points > 0 || oppPoints > 0) {
+                    // Clean up opponent name
+                    let cleanOpponent = opponent.replace(/^vs\.\s*/, '').replace(/^at\s*/, '').trim();
+                    
+                    // Clean up location
+                    let cleanLocation = location.replace(/^at\s*/, '').trim();
+
+                    // If location is empty but opponent starts with "vs.", use the opponent's location
+                    if (!cleanLocation && opponent.startsWith('vs.')) {
+                        cleanLocation = cleanOpponent;
+                    }
+
+                    // If both opponent and location start with "at", use the opponent's location
+                    if (opponent.startsWith('at') && location.startsWith('at')) {
+                        cleanLocation = cleanOpponent;
+                    }
+
+                    // If opponent has "vs." or "at" but location is different, use the location
+                    if ((opponent.startsWith('vs.') || opponent.startsWith('at')) && cleanLocation) {
+                        cleanOpponent = opponent.replace(/^(vs\.|at)\s*/, '').trim();
+                    }
+
                     games.push({
                         date,
-                        opponent,
+                        opponent: cleanOpponent,
                         isConference,
-                        location,
+                        location: cleanLocation,
                         result: resultParts[0],
                         points,
                         oppPoints
@@ -142,7 +149,8 @@ async function fetchTeamSchedule(teamName, scheduleId) {
 
 async function main() {
     try {
-        console.log('\n=== Starting Big 12 Basketball Schedule Fetcher ===\n');
+        console.log('\n=== Starting Big 12 Men\'s Basketball Schedule Fetcher ===\n');
+        console.log(`Found ${Object.keys(BIG12_TEAMS).length} teams`);
         
         const allTeamStats = [];
         
@@ -211,12 +219,12 @@ async function main() {
 
             // Delete existing team stats
             await knex('team_stats')
-                .where({ sport: 'basketball' })
+                .where({ sport: 'mens-basketball' })
                 .del();
 
             // Insert new team stats
             const statsToInsert = allTeamStats.map(team => ({
-                sport: 'basketball',
+                sport: 'mens-basketball',
                 team: team.team,
                 name: team.name,
                 location: team.location,
