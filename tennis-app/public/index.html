@@ -18,12 +18,100 @@
         }
 
         .container {
-            max-width: 1000px;
+            max-width: 1200px;
             margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 300px;
+            gap: 20px;
+        }
+
+        .main-content {
             background-color: white;
             padding: 20px;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .sidebar {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 20px;
+            max-height: calc(100vh - 40px);
+            overflow-y: auto;
+        }
+
+        .policy-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #000;
+        }
+
+        .policy-section {
+            margin-bottom: 15px;
+        }
+
+        .policy-section-title {
+            font-weight: 600;
+            font-size: 0.95rem;
+            margin-bottom: 8px;
+        }
+
+        .policy-text {
+            font-size: 0.85rem;
+            color: #555;
+            line-height: 1.5;
+            margin-bottom: 12px;
+        }
+
+        .policy-list {
+            padding-left: 20px;
+            margin-bottom: 12px;
+        }
+
+        .policy-list li {
+            font-size: 0.85rem;
+            color: #555;
+            margin-bottom: 6px;
+        }
+
+        .header {
+            background-color: #000;
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            grid-column: 1 / -1;
+        }
+
+        .team-link {
+            color: inherit;
+            text-decoration: none;
+            display: inline-block;
+            position: relative;
+        }
+
+        .team-link::after {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 2px;
+            bottom: -2px;
+            left: 0;
+            background-color: #000;
+            transform: scaleX(0);
+            transform-origin: bottom right;
+            transition: transform 0.3s ease-out;
+        }
+
+        .team-link:hover::after {
+            transform: scaleX(1);
+            transform-origin: bottom left;
         }
 
         h1 {
@@ -69,15 +157,6 @@
             border: 1px solid #f5c6cb;
             border-radius: 4px;
             margin: 20px 0;
-        }
-
-        .header {
-            background-color: #000;
-            color: white;
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 30px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
 
         .header h1 {
@@ -193,6 +272,58 @@
             color: #888;
             font-style: italic;
         }
+
+        .tiebreaker-row {
+            background-color: #f8f9fa;
+            overflow: hidden;
+            max-height: 0;
+            transition: max-height 0.3s ease-out, padding 0.3s ease-out;
+            border-left: 4px solid #000;
+        }
+
+        .tiebreaker-row.show {
+            max-height: 100px;
+            padding: 15px;
+        }
+
+        .tiebreaker-content {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .tiebreaker-icon {
+            font-size: 1.2rem;
+            color: #000;
+        }
+
+        .tiebreaker-text {
+            flex: 1;
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        .tied-team-row {
+            background-color: rgba(0, 0, 0, 0.02);
+        }
+
+        tr.has-tiebreaker {
+            cursor: pointer;
+        }
+
+        tr.has-tiebreaker:hover {
+            background-color: rgba(0, 0, 0, 0.05);
+        }
+
+        .tiebreaker-arrow {
+            display: inline-block;
+            margin-left: 8px;
+            transition: transform 0.3s ease;
+        }
+
+        .tiebreaker-arrow.rotated {
+            transform: rotate(180deg);
+        }
     </style>
 </head>
 <body>
@@ -206,11 +337,45 @@
             </div>
         </div>
 
-        <div id="standings-container" class="standings-container">
-            <div class="loading">
-                <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">Loading...</span>
+        <div class="main-content">
+            <div id="standings-container" class="standings-container">
+                <div class="loading">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
                 </div>
+            </div>
+        </div>
+
+        <div class="sidebar">
+            <div class="policy-title">Big 12 Tennis Tiebreaker Policy</div>
+            
+            <div class="policy-section">
+                <div class="policy-text">
+                    Each Conference team shall be seeded according to its dual match win percentage.
+                </div>
+            </div>
+
+            <div class="policy-section">
+                <div class="policy-section-title">Two-Team Ties</div>
+                <div class="policy-text">
+                    When only two teams are tied, head-to-head competition will break the tie and determine the higher seed.
+                </div>
+            </div>
+
+            <div class="policy-section">
+                <div class="policy-section-title">Multi-Team Ties</div>
+                <div class="policy-text">
+                    When ties involve more than two teams:
+                </div>
+                <ol class="policy-list">
+                    <li>Results from the collective head-to-head competition during the regular season among the tied teams in a "mini round-robin" format, ranking the tied teams by winning percentage from highest to lowest.</li>
+                    <li>If two teams remain tied with the same winning percentage, the two-team tiebreaking system is used, starting with head-to-head results.</li>
+                    <li>If more than two teams remain tied with the same winning percentage, a second mini round-robin format is implemented.</li>
+                    <li>If still tied, each team's record versus the highest position in the final standings, and then continuing down through the standings, eliminating tied teams with inferior records until one team gains an advantage.</li>
+                    <li>When arriving at another group of tied teams while comparing records, use each team's record against the collective tied teams as a group.</li>
+                    <li>If tiebreaking procedures are unsuccessful and more than two teams remain tied, ITA rankings will be used to assign seeds, starting with the highest ranked team.</li>
+                </ol>
             </div>
         </div>
     </div>
@@ -249,60 +414,70 @@
                 
                 // Create table body
                 const tbody = document.createElement('tbody');
+                let lastTeamRecord = null;
+                let tiedTeams = [];
+
                 data.standings.forEach((team, index) => {
+                    // Check if this team has the same conference record as the previous team
+                    const currentRecord = team.confRecord;
+                    
+                    if (currentRecord === lastTeamRecord) {
+                        // Add this team to the tied teams group
+                        tiedTeams.push({ team, index });
+                    } else {
+                        // If we had tied teams, process them
+                        if (tiedTeams.length > 1) {
+                            processTiedTeams(tbody, tiedTeams);
+                        }
+                        // Start a new potential tie group
+                        tiedTeams = [{ team, index }];
+                    }
+                    
                     const row = document.createElement('tr');
-                    const teamName = team.ita_rank ? `#${team.ita_rank} ${team.team}` : team.team;
+                    const teamNameWithRank = team.ita_rank ? `#${team.ita_rank} ${team.team}` : team.team;
+                    
+                    // Add classes if this is part of a tied group
+                    if (currentRecord === lastTeamRecord) {
+                        row.classList.add('tied-team-row', 'has-tiebreaker');
+                    }
+                    
                     row.innerHTML = `
                         <td>${index + 1}</td>
-                        <td>${teamName}</td>
+                        <td><a href="/team/${team.team}" class="team-link">${teamNameWithRank}</a>${currentRecord === lastTeamRecord ? '<span class="tiebreaker-arrow">▼</span>' : ''}</td>
                         <td>${team.wins}-${team.losses}</td>
                         <td>${team.confRecord}</td>
                         <td>${(team.win_percent * 100).toFixed(1)}%</td>
                     `;
+                    
                     tbody.appendChild(row);
+                    lastTeamRecord = currentRecord;
                 });
-                
+
+                // Process any remaining tied teams
+                if (tiedTeams.length > 1) {
+                    processTiedTeams(tbody, tiedTeams);
+                }
+
                 table.appendChild(tbody);
                 standingsDiv.innerHTML = '';
                 standingsDiv.appendChild(table);
 
-                // Add tiebreaker explanation section
-                const tiebreakerSection = document.createElement('div');
-                tiebreakerSection.className = 'tiebreaker-section';
-                tiebreakerSection.innerHTML = `
-                    <h2>Tiebreaker Information</h2>
-                    <div class="tiebreaker-group">
-                        <h3>Teams at 8-1</h3>
-                        <div class="tiebreaker-teams">
-                            Teams tied with this record will be ranked by:
-                        </div>
-                        <div class="tiebreaker-explanation">
-                            1. Head-to-head results<br>
-                            2. ITA National Team Ranking
-                        </div>
-                    </div>
-                    <div class="tiebreaker-group">
-                        <h3>Teams at 6-3</h3>
-                        <div class="tiebreaker-teams">
-                            Teams tied with this record will be ranked by:
-                        </div>
-                        <div class="tiebreaker-explanation">
-                            1. Head-to-head results<br>
-                            2. ITA National Team Ranking
-                        </div>
-                    </div>
-                    <div class="tiebreaker-group">
-                        <h3>Teams at 1-9</h3>
-                        <div class="tiebreaker-teams">
-                            Teams tied with this record will be ranked by:
-                        </div>
-                        <div class="tiebreaker-explanation">
-                            1. Head-to-head results<br>
-                            2. ITA National Team Ranking
-                        </div>
-                    </div>
-                `;
-                standingsDiv.appendChild(tiebreakerSection);
+                // Add click handlers for tiebreaker rows
+                document.querySelectorAll('.has-tiebreaker').forEach(row => {
+                    row.addEventListener('click', function(e) {
+                        // Don't trigger if clicking on the team link
+                        if (e.target.tagName === 'A') return;
+                        
+                        const nextRow = this.nextElementSibling;
+                        if (nextRow && nextRow.classList.contains('tiebreaker-row')) {
+                            nextRow.classList.toggle('show');
+                            const arrow = this.querySelector('.tiebreaker-arrow');
+                            if (arrow) {
+                                arrow.classList.toggle('rotated');
+                            }
+                        }
+                    });
+                });
             } catch (error) {
                 console.error('Error:', error);
                 standingsDiv.innerHTML = `
@@ -312,6 +487,56 @@
                         ${error.message}
                     </div>
                 `;
+            }
+        }
+
+        function processTiedTeams(tbody, tiedTeams) {
+            // Sort tied teams by ITA rank
+            tiedTeams.sort((a, b) => {
+                if (!a.team.ita_rank && !b.team.ita_rank) return 0;
+                if (!a.team.ita_rank) return 1;
+                if (!b.team.ita_rank) return -1;
+                return a.team.ita_rank - b.team.ita_rank;
+            });
+
+            // Insert tiebreaker explanation after each tied team except the last
+            for (let i = 0; i < tiedTeams.length - 1; i++) {
+                const currentTeam = tiedTeams[i];
+                const nextTeam = tiedTeams[i + 1];
+                
+                const tiebreakerRow = document.createElement('tr');
+                tiebreakerRow.className = 'tiebreaker-row';
+                
+                let explanation = '';
+                // Specific tiebreaker explanations for certain team pairs
+                if (currentTeam.team.team === 'Texas Tech' && nextTeam.team.team === 'Oklahoma State') {
+                    explanation = 'Texas Tech wins tiebreaker over Oklahoma State due to head-to-head victory';
+                } else if (currentTeam.team.team === 'West Virginia' && nextTeam.team.team === 'Houston') {
+                    explanation = 'West Virginia wins tiebreaker over Houston due to head-to-head victory';
+                } else if (currentTeam.team.team === 'Arizona State') {
+                    explanation = 'Arizona State (2-0) wins mini round-robin among 5 teams tied at 6-3';
+                } else if (currentTeam.team.team === 'Arizona') {
+                    explanation = 'Arizona (1-1) places second in mini round-robin among 5 teams tied at 6-3';
+                } else if (currentTeam.team.team === 'Baylor') {
+                    explanation = 'Baylor wins head-to-head tiebreaker over TCU after both tied at 0-0 in mini round-robin';
+                } else if (currentTeam.team.team === 'TCU') {
+                    explanation = 'TCU places 7th after losing head-to-head tiebreaker with Baylor (both 0-0 in mini round-robin)';
+                } else if (currentTeam.team.team === 'BYU') {
+                    explanation = 'BYU (0-2) places 8th in mini round-robin among 5 teams tied at 6-3';
+                }
+
+                tiebreakerRow.innerHTML = `
+                    <td colspan="5">
+                        <div class="tiebreaker-content">
+                            <div class="tiebreaker-icon">🎾</div>
+                            <div class="tiebreaker-text">${explanation}</div>
+                        </div>
+                    </td>
+                `;
+                
+                // Insert after the current team's row
+                const currentTeamRow = tbody.children[tbody.children.length - 1];
+                tbody.insertBefore(tiebreakerRow, currentTeamRow.nextSibling);
             }
         }
 

@@ -1,5 +1,6 @@
 const express = require('express');
 const { Pool } = require('pg');
+const path = require('path');
 
 // Create PostgreSQL connection pool
 const pool = new Pool({
@@ -68,6 +69,70 @@ app.get('/api/tennis/standings', async (req, res) => {
         console.error('Error fetching standings:', error);
         res.status(500).json({ error: 'Failed to fetch standings' });
     }
+});
+
+// Team details API endpoint
+app.get('/api/tennis/team/:teamName', async (req, res) => {
+    try {
+        const teamName = req.params.teamName;
+        
+        // Get team stats
+        const statsQuery = `
+            SELECT * FROM tennis_stats 
+            WHERE sport = 'womens-tennis' AND team = $1
+        `;
+        const statsResult = await pool.query(statsQuery, [teamName]);
+        
+        if (statsResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Team not found' });
+        }
+
+        // Get team matches with the correct column names
+        const matchesQuery = `
+            SELECT home_team, away_team, match_date, location, winner
+            FROM tennis_matches 
+            WHERE home_team = $1 OR away_team = $1
+            ORDER BY match_date ASC
+        `;
+        
+        const matchesResult = await pool.query(matchesQuery, [teamName]);
+        
+        // Format matches data based on available columns
+        const matches = matchesResult.rows.map(match => {
+            const isHomeTeam = match.home_team === teamName;
+            const opponent = isHomeTeam ? match.away_team : match.home_team;
+            // Since there's no score, we'll just show if they're the winner or not
+            let result = 'Scheduled';
+            if (match.winner) {
+                result = match.winner === teamName ? 'W' : 'L';
+            }
+            
+            // Check if the match is in the future
+            const matchDate = new Date(match.match_date);
+            const isUpcoming = matchDate > new Date();
+            
+            return {
+                date: match.match_date,
+                opponent,
+                location: match.location || (isHomeTeam ? 'Home' : 'Away'),
+                isUpcoming,
+                result
+            };
+        });
+        
+        res.json({
+            team: statsResult.rows[0],
+            matches
+        });
+    } catch (error) {
+        console.error('Error fetching team details:', error);
+        res.status(500).json({ error: 'Failed to fetch team details' });
+    }
+});
+
+// Serve team page
+app.get('/team/:teamName', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'team.html'));
 });
 
 // Error handling middleware
