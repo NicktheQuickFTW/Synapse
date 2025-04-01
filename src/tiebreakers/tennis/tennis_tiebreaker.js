@@ -469,25 +469,74 @@ function applyTiebreakers(teams, headToHeadData) {
           const recordA = miniRecords[a.team];
           const recordB = miniRecords[b.team];
           
-          // First by win percentage
-          if (recordB.winPercent !== recordA.winPercent) {
-            return recordB.winPercent - recordA.winPercent;
+          const totalA = recordA.wins + recordA.losses;
+          const totalB = recordB.wins + recordB.losses;
+          
+          // If one team has played games and the other hasn't
+          if ((totalA === 0) !== (totalB === 0)) {
+            if (totalA === 0) {
+              // A hasn't played, B has played
+              return recordB.wins > recordB.losses ? 1 : -1; // A goes after winning records, before losing records
+            } else {
+              // B hasn't played, A has played
+              return recordA.wins > recordA.losses ? -1 : 1; // B goes after winning records, before losing records
+            }
           }
           
-          // Then by ITA ranking
+          // If both teams have played games
+          if (totalA > 0 && totalB > 0) {
+            const winPctA = recordA.wins / totalA;
+            const winPctB = recordB.wins / totalB;
+            
+            if (Math.abs(winPctB - winPctA) > 0.001) {
+              return winPctB - winPctA;
+            }
+            
+            // If win percentages are equal, use head-to-head
+            const h2hKeyAB = `${a.team} vs ${b.team}`;
+            const h2hKeyBA = `${b.team} vs ${a.team}`;
+            
+            if (headToHead[h2hKeyAB]) {
+              return headToHead[h2hKeyAB] === a.team ? -1 : 1;
+            } else if (headToHead[h2hKeyBA]) {
+              return headToHead[h2hKeyBA] === b.team ? 1 : -1;
+            }
+          }
+          
+          // If neither team has played or all other criteria are equal, use ITA ranking
           return a.ita_rank - b.ita_rank;
         });
         
         // Add to seedings with explanation
         sortedTeams.forEach(team => {
           const record = miniRecords[team.team];
+          const total = record.wins + record.losses;
           
-          // Create a detailed explanation of the mini round-robin
-          let matchDetails = '';
-          if (record.matches.length > 0) {
-            matchDetails = ' - ' + record.matches.map(m => 
-              `${m.result} vs ${m.opponent} (${m.date})`
-            ).join(', ');
+          let tiebreakerReason = '';
+          if (total === 0) {
+            tiebreakerReason = `No games played in mini round-robin`;
+          } else {
+            const winPct = (record.wins / total * 100).toFixed(1);
+            tiebreakerReason = `Mini round-robin: ${record.wins}-${record.losses} (${winPct}%)`;
+            if (record.matches.length > 0) {
+              tiebreakerReason += ' - ' + record.matches.map(m => 
+                `${m.result} vs ${m.opponent} (${m.date})`
+              ).join(', ');
+            }
+          }
+          
+          // Add ITA ranking if it was used as a tiebreaker
+          const otherTeamsWithSameRecord = sortedTeams.filter(t => {
+            if (t.team === team.team) return false;
+            const otherRecord = miniRecords[t.team];
+            const otherTotal = otherRecord.wins + otherRecord.losses;
+            return (total === 0 && otherTotal === 0) || 
+                   (total > 0 && otherTotal > 0 && 
+                    Math.abs(otherRecord.wins/otherTotal - record.wins/total) < 0.001);
+          });
+          
+          if (otherTeamsWithSameRecord.length > 0) {
+            tiebreakerReason += `, ITA Rank: #${team.ita_rank}`;
           }
           
           seedings.push({
@@ -496,9 +545,9 @@ function applyTiebreakers(teams, headToHeadData) {
             record: `${team.wins}-${team.losses}`,
             confRecord: `${team.conf_wins}-${team.conf_losses}`,
             winPercent: parseFloat(winPercent),
-            tiebreaker: `Mini round-robin: ${record.wins}-${record.losses} (${(record.winPercent * 100).toFixed(1)}%)${matchDetails}`,
+            tiebreaker: tiebreakerReason,
             miniRoundRobinRecord: `${record.wins}-${record.losses}`,
-            miniRoundRobinPercent: record.winPercent,
+            miniRoundRobinPercent: total > 0 ? record.wins / total : null,
             miniRoundRobinMatches: record.matches
           });
         });
