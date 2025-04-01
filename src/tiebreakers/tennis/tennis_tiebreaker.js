@@ -105,9 +105,9 @@ async function getHeadToHead(sport = 'womens-tennis') {
       return {};
     }
     
-    // Convert to the format expected by the analysis functions
-    const headToHead = {};
-    const matchDetails = {}; // Store more details about each head-to-head match
+    const headToHeadWinners = {}; // Renamed from headToHead to avoid confusion
+    const matchDetails = {};
+    const processedMatchKeys = new Set(); // To track processed matches
     
     teams.forEach(team => {
       let schedule;
@@ -124,28 +124,37 @@ async function getHeadToHead(sport = 'womens-tennis') {
       }
       
       schedule.forEach(game => {
-        if (game.result && game.isConference) {
-          const key = `${team.team} vs ${game.opponent}`;
+        if (game.result && game.isConference && game.opponent) {
+          // Create a consistent key for the match using sorted team names and date
+          const sortedTeams = [team.team, game.opponent].sort();
+          const matchKey = `${sortedTeams[0]}|${sortedTeams[1]}|${game.date}`;
+          
+          // Skip if this match combination (regardless of perspective) has been processed
+          if (processedMatchKeys.has(matchKey)) {
+            return; 
+          }
+          processedMatchKeys.add(matchKey);
+          
+          const h2hKey = `${team.team} vs ${game.opponent}`; // Key from this team's perspective
           const winner = game.result === 'W' ? team.team : game.opponent;
           const loser = game.result === 'W' ? game.opponent : team.team;
           
-          headToHead[key] = winner;
+          headToHeadWinners[h2hKey] = winner;
           
-          // Store more details about the match
-          matchDetails[key] = {
+          matchDetails[h2hKey] = {
             date: game.date,
             location: game.location,
             winner,
             loser,
-            score: game.score || 'Unknown' // Some schedules might include score data
+            score: game.score || 'Unknown' 
           };
         }
       });
     });
     
     return { 
-      winners: headToHead, // The original format for backward compatibility 
-      matchDetails // New, more detailed format
+      winners: headToHeadWinners, 
+      matchDetails 
     };
   } catch (error) {
     console.error(`Error fetching head-to-head data for ${sport}:`, error);
@@ -370,6 +379,7 @@ function applyTiebreakers(teams, headToHeadData) {
       if (tiedTeams.length > 2) {
         // Calculate mini round-robin records
         const miniRecords = {};
+        const processedMiniMatches = new Set(); // Track matches processed within this tiebreaker
         
         // Initialize records
         tiedTeams.forEach(team => {
@@ -400,47 +410,46 @@ function applyTiebreakers(teams, headToHeadData) {
                 matchDetail = matchDetails[h2hKey2];
               }
               
-              if (winner) {
-                if (winner === team1.team) {
-                  miniRecords[team1.team].wins++;
-                  miniRecords[team2.team].losses++;
-                  
-                  // Store match details
-                  if (matchDetail) {
-                    miniRecords[team1.team].matches.push({
-                      opponent: team2.team,
-                      result: 'W',
-                      date: matchDetail.date,
-                      location: matchDetail.location
-                    });
-                    
-                    miniRecords[team2.team].matches.push({
-                      opponent: team1.team,
-                      result: 'L',
-                      date: matchDetail.date,
-                      location: matchDetail.location
-                    });
-                  }
-                } else {
-                  miniRecords[team1.team].losses++;
-                  miniRecords[team2.team].wins++;
-                  
-                  // Store match details
-                  if (matchDetail) {
-                    miniRecords[team1.team].matches.push({
-                      opponent: team2.team,
-                      result: 'L',
-                      date: matchDetail.date,
-                      location: matchDetail.location
-                    });
-                    
-                    miniRecords[team2.team].matches.push({
-                      opponent: team1.team,
-                      result: 'W',
-                      date: matchDetail.date,
-                      location: matchDetail.location
-                    });
-                  }
+              if (winner && matchDetail?.date) { // Ensure we have match details and date
+                // Create a consistent key for deduplication within this tiebreaker step
+                const sortedTeamsMini = [team1.team, team2.team].sort();
+                const miniMatchKey = `${sortedTeamsMini[0]}|${sortedTeamsMini[1]}|${matchDetail.date}`;
+
+                // Only process this specific match pair once for the mini round-robin
+                if (!processedMiniMatches.has(miniMatchKey)) {
+                    processedMiniMatches.add(miniMatchKey);
+
+                    if (winner === team1.team) {
+                      miniRecords[team1.team].wins++;
+                      miniRecords[team2.team].losses++;
+                      miniRecords[team1.team].matches.push({
+                        opponent: team2.team,
+                        result: 'W',
+                        date: matchDetail.date,
+                        location: matchDetail.location
+                      });
+                      miniRecords[team2.team].matches.push({
+                        opponent: team1.team,
+                        result: 'L',
+                        date: matchDetail.date,
+                        location: matchDetail.location
+                      });
+                    } else {
+                      miniRecords[team1.team].losses++;
+                      miniRecords[team2.team].wins++;
+                      miniRecords[team1.team].matches.push({
+                        opponent: team2.team,
+                        result: 'L',
+                        date: matchDetail.date,
+                        location: matchDetail.location
+                      });
+                      miniRecords[team2.team].matches.push({
+                        opponent: team1.team,
+                        result: 'W',
+                        date: matchDetail.date,
+                        location: matchDetail.location
+                      });
+                    }
                 }
               }
             }
