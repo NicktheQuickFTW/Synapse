@@ -273,58 +273,6 @@
             font-style: italic;
         }
 
-        .tiebreaker-row {
-            background-color: #f8f9fa;
-            overflow: hidden;
-            max-height: 0;
-            transition: max-height 0.3s ease-out, padding 0.3s ease-out;
-            border-left: 4px solid #000;
-        }
-
-        .tiebreaker-row.show {
-            max-height: 100px;
-            padding: 15px;
-        }
-
-        .tiebreaker-content {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-
-        .tiebreaker-icon {
-            font-size: 1.2rem;
-            color: #000;
-        }
-
-        .tiebreaker-text {
-            flex: 1;
-            font-size: 0.9rem;
-            color: #666;
-        }
-
-        .tied-team-row {
-            background-color: rgba(0, 0, 0, 0.02);
-        }
-
-        tr.has-tiebreaker {
-            cursor: pointer;
-        }
-
-        tr.has-tiebreaker:hover {
-            background-color: rgba(0, 0, 0, 0.05);
-        }
-
-        .tiebreaker-arrow {
-            display: inline-block;
-            margin-left: 8px;
-            transition: transform 0.3s ease;
-        }
-
-        .tiebreaker-arrow.rotated {
-            transform: rotate(180deg);
-        }
-
         .upcoming-match {
             background-color: #f0f8ff;
         }
@@ -429,8 +377,6 @@
                 }
 
                 const table = document.createElement('table');
-                
-                // Create table header
                 const thead = document.createElement('thead');
                 thead.innerHTML = `
                     <tr>
@@ -442,99 +388,27 @@
                     </tr>
                 `;
                 table.appendChild(thead);
-                
-                // Create table body
                 const tbody = document.createElement('tbody');
-                let lastTeamRecord = null;
-                let tiedGroupStartIndex = -1;
-
+                
+                // Create all team rows (NO arrow/tiebreaker logic here)
                 data.standings.forEach((team, index) => {
-                    const currentRecord = team.confRecord;
-                    let isTiedWithPrevious = false;
-
-                    if (currentRecord === lastTeamRecord && lastTeamRecord !== null) {
-                        isTiedWithPrevious = true;
-                        if (tiedGroupStartIndex === -1) {
-                            // Mark the start of this tied group (the previous team's index)
-                            tiedGroupStartIndex = index - 1;
-                        }
-                    } else {
-                        // If the record changes, and we were in a tied group, process it
-                        if (tiedGroupStartIndex !== -1) {
-                            const groupSize = index - tiedGroupStartIndex;
-                            if (groupSize > 1) {
-                                const tiedTeamsData = data.standings.slice(tiedGroupStartIndex, index)
-                                    .map((t, i) => ({ team: t, index: tiedGroupStartIndex + i }));
-                                processTiedTeams(tbody, tiedTeamsData);
-                            }
-                        }
-                        tiedGroupStartIndex = -1; // Reset group tracking
-                    }
-                    
                     const row = document.createElement('tr');
+                    row.dataset.originalIndex = index; 
                     const teamNameWithRank = team.ita_rank ? `#${team.ita_rank} ${team.team}` : team.team;
-                    
-                    // Add class if this row is tied with the *next* row (which requires looking ahead slightly or handling in processTiedTeams)
-                    // For simplicity, we add arrow based on tie with *previous* row, processTiedTeams inserts explanation below the higher ranked team in the pair
-                    if (isTiedWithPrevious) {
-                         // Add class to the PREVIOUS row to indicate it has a tiebreaker below it
-                        const previousRow = tbody.children[tbody.children.length - 1];
-                        if(previousRow && !previousRow.classList.contains('has-tiebreaker')) {
-                             previousRow.classList.add('has-tiebreaker');
-                             // Add arrow to the previous row's team name cell
-                             const teamCell = previousRow.cells[1]; 
-                             const arrowSpan = document.createElement('span');
-                             arrowSpan.className = 'tiebreaker-arrow';
-                             arrowSpan.innerHTML = '▼';
-                             teamCell.appendChild(arrowSpan);
-                        }
-                    }
-                    
                     row.innerHTML = `
                         <td>${index + 1}</td>
-                        <td><a href="/team/${team.team}" class="team-link">${teamNameWithRank}</a></td>
+                        <td><a href="/team/${encodeURIComponent(team.team)}" class="team-link">${teamNameWithRank}</a></td> 
                         <td>${team.wins}-${team.losses}</td>
                         <td>${team.confRecord}</td>
                         <td>${(team.win_percent * 100).toFixed(1)}%</td>
                     `;
-                    
                     tbody.appendChild(row);
-                    lastTeamRecord = currentRecord;
                 });
-
-                // Process any remaining tied group at the end of the list
-                if (tiedGroupStartIndex !== -1) {
-                    const groupSize = data.standings.length - tiedGroupStartIndex;
-                     if (groupSize > 1) {
-                          const tiedTeamsData = data.standings.slice(tiedGroupStartIndex)
-                              .map((t, i) => ({ team: t, index: tiedGroupStartIndex + i }));
-                          processTiedTeams(tbody, tiedTeamsData);
-                     }
-                }
-
+                
                 table.appendChild(tbody);
                 standingsDiv.innerHTML = '';
                 standingsDiv.appendChild(table);
 
-                // REMOVE ROW CLICK HANDLER
-                /*
-                // Add click handlers for tiebreaker rows
-                document.querySelectorAll('.has-tiebreaker').forEach(row => {
-                    row.addEventListener('click', function(e) {
-                        // Don't trigger if clicking on the team link
-                        if (e.target.tagName === 'A') return;
-                        
-                        const nextRow = this.nextElementSibling;
-                        if (nextRow && nextRow.classList.contains('tiebreaker-row')) {
-                            nextRow.classList.toggle('show');
-                            const arrow = this.querySelector('.tiebreaker-arrow');
-                            if (arrow) {
-                                arrow.classList.toggle('rotated');
-                            }
-                        }
-                    });
-                });
-                */
             } catch (error) {
                 console.error('Error:', error);
                 standingsDiv.innerHTML = `
@@ -545,116 +419,10 @@
                     </div>
                 `;
             }
+            
+            // Load standings when page loads
+            document.addEventListener('DOMContentLoaded', fetchStandings);
         }
-
-        function processTiedTeams(tbody, tiedTeams) {
-            // Determine the conference record for this group
-            const confRecord = tiedTeams[0].team.confRecord;
-
-            // Iterate through the pairs of tied teams (as ordered by the server)
-            for (let i = 0; i < tiedTeams.length - 1; i++) {
-                const team1 = tiedTeams[i].team; // Higher ranked team in pair
-                const team2 = tiedTeams[i + 1].team; // Lower ranked team in pair
-                let explanation = '';
-
-                // --- Specific Tiebreaker Explanations --- 
-                // Two-way tie at 8-1 (Tech vs OSU)
-                if (confRecord === '8-1' && team1.team === 'Texas Tech' && team2.team === 'Oklahoma State') {
-                    explanation = 'Texas Tech wins tiebreaker over Oklahoma State due to head-to-head victory.';
-                }
-                // Five-way tie at 6-3 (Ranked: AZ > ASU > TCU > Baylor > BYU)
-                else if (confRecord === '6-3' && tiedTeams.length === 5) {
-                    if (team1.team === 'Arizona' && team2.team === 'Arizona State') {
-                        explanation = 'Tiebreaker Step 1 (Mini Round-Robin): Arizona ranked #1 in group (2-0 record vs tied teams).';
-                    } else if (team1.team === 'Arizona State' && team2.team === 'TCU') {
-                         explanation = 'Tiebreaker Step 1 (Mini Round-Robin): Arizona State ranked #2 in group (1-1 record vs tied teams).';
-                    } else if (team1.team === 'TCU' && team2.team === 'Baylor') {
-                        explanation = 'Tiebreaker Step 4 (Record vs Highest): TCU ranked #3, Baylor #4 based on record vs #2 Texas Tech (after 0-0 mini round-robin tie).';
-                    } else if (team1.team === 'Baylor' && team2.team === 'BYU') {
-                         explanation = 'Tiebreaker Step 1 (Mini Round-Robin): BYU ranked #5 in group (0-2 record vs tied teams).';
-                    }
-                }
-                // Three-way tie at 1-9 (Ranked: WVU > Cincy > Houston)
-                 else if (confRecord === '1-9' && tiedTeams.length === 3) {
-                    if (team1.team === 'West Virginia' && team2.team === 'Cincinnati') {
-                        explanation = 'Tiebreaker Step 1 (Mini Round-Robin): West Virginia ranked #1 in group (2-0 record vs tied teams).';
-                    } else if (team1.team === 'Cincinnati' && team2.team === 'Houston') {
-                         explanation = 'Tiebreaker Step 1 (Mini Round-Robin): Cincinnati ranked #2 (1-1 record), Houston ranked #3 (0-2 record) vs tied teams.';
-                    }
-                }
-                // --- Default Tiebreaker (ITA Rank if not covered above) ---
-                else {
-                     if (team1.ita_rank && team2.ita_rank) {
-                        explanation = `${team1.team} wins tiebreaker over ${team2.team} due to higher ITA ranking (#${team1.ita_rank} vs #${team2.ita_rank}).`;
-                    } else if (team1.ita_rank) {
-                        explanation = `${team1.team} wins tiebreaker over ${team2.team} due to having an ITA ranking (#${team1.ita_rank}).`;
-                    } else if (team2.ita_rank) {
-                        explanation = `${team1.team} loses tiebreaker to ${team2.team} due to lower ITA ranking (Unranked vs #${team2.ita_rank}).`;
-                    } else {
-                        explanation = 'Teams remain tied after initial tiebreakers (further steps may apply).';
-                    }
-                }
-
-                // Insert the explanation row only if an explanation was generated
-                if (explanation) {
-                    const tiebreakerRow = document.createElement('tr');
-                    tiebreakerRow.className = 'tiebreaker-row';
-                    tiebreakerRow.innerHTML = `
-                        <td colspan="5">
-                            <div class="tiebreaker-content">
-                                <div class="tiebreaker-icon">🎾</div>
-                                <div class="tiebreaker-text">${explanation}</div>
-                            </div>
-                        </td>
-                    `;
-                    
-                    // Find the row element for team1 to insert after
-                    let firstTeamRowElement = findTeamRowByIndex(tbody, tiedTeams[i].index);
-
-                    if (firstTeamRowElement) {
-                        // Insert after the row corresponding to team1
-                         tbody.insertBefore(tiebreakerRow, firstTeamRowElement.nextSibling);
-                    } else {
-                        console.error("Could not find the anchor row to insert tiebreaker info for", team1.team);
-                    }
-                }
-            }
-        }
-
-        // Helper function to find team row by its original index in the standings data
-        function findTeamRowByIndex(tbody, index) {
-            const allTeamRows = tbody.querySelectorAll('tr:not(.tiebreaker-row)');
-            if (index < allTeamRows.length) {
-                return allTeamRows[index];
-            }
-            return null;
-        }
-
-        // Add click handlers for tiebreaker ARROWS
-        function addArrowClickHandlers() {
-             document.querySelectorAll('.tiebreaker-arrow').forEach(arrow => {
-                // Remove any existing listener to prevent duplicates on refresh
-                const newArrow = arrow.cloneNode(true);
-                arrow.parentNode.replaceChild(newArrow, arrow);
-                
-                newArrow.addEventListener('click', function(e) {
-                    e.stopPropagation(); // Prevent triggering row click if any
-                    const parentRow = this.closest('tr');
-                    const nextRow = parentRow ? parentRow.nextElementSibling : null;
-                    
-                    if (nextRow && nextRow.classList.contains('tiebreaker-row')) {
-                        nextRow.classList.toggle('show');
-                        this.classList.toggle('rotated');
-                    }
-                });
-            });
-        }
-
-        // Load standings when page loads
-        document.addEventListener('DOMContentLoaded', async () => {
-            await fetchStandings(); // Wait for standings to load
-            addArrowClickHandlers(); // Then add click handlers to the arrows
-        });
     </script>
     <script src="https://kit.fontawesome.com/a076d05399.js"></script>
 </body>
