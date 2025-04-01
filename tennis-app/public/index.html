@@ -303,6 +303,34 @@
         .btn:hover {
             background-color: #333;
         }
+
+        /* Add styles for static tiebreaker rows */
+        .tiebreaker-row {
+            background-color: #f8f9fa; /* Light background */
+            border-left: 4px solid #ccc; /* Subtle left border */
+        }
+
+        .tiebreaker-row td {
+             padding: 8px 12px 8px 20px; /* Adjust padding */
+        }
+
+        .tiebreaker-content {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .tiebreaker-icon {
+            font-size: 1rem; /* Slightly smaller icon */
+            color: #666;
+        }
+
+        .tiebreaker-text {
+            flex: 1;
+            font-size: 0.85rem; /* Smaller font size */
+            color: #555;      /* Slightly darker text */
+            font-style: italic;
+        }
     </style>
 </head>
 <body>
@@ -390,7 +418,7 @@
                 table.appendChild(thead);
                 const tbody = document.createElement('tbody');
                 
-                // Create all team rows (NO arrow/tiebreaker logic here)
+                // Create all team rows first
                 data.standings.forEach((team, index) => {
                     const row = document.createElement('tr');
                     row.dataset.originalIndex = index; 
@@ -405,13 +433,46 @@
                     tbody.appendChild(row);
                 });
                 
+                // Now, identify tied groups and insert explanations
+                let lastTeamRecord = null;
+                let tiedGroupStartIndex = -1;
+                let processedIndices = new Set(); 
+
+                for (let index = 0; index < data.standings.length; index++) {
+                    const team = data.standings[index];
+                    const currentRecord = team.confRecord;
+
+                    // Detect start of a potential new group or end of list
+                    if ((currentRecord !== lastTeamRecord && lastTeamRecord !== null) || index === data.standings.length -1 ) {
+                        let groupEndIndex = (currentRecord !== lastTeamRecord) ? index : index + 1;
+                        if (tiedGroupStartIndex !== -1 && !processedIndices.has(tiedGroupStartIndex)) {
+                            const groupSize = groupEndIndex - tiedGroupStartIndex;
+                            if (groupSize > 1) {
+                                const tiedTeamsData = data.standings.slice(tiedGroupStartIndex, groupEndIndex)
+                                    .map((t, i) => ({ team: t, index: tiedGroupStartIndex + i }));
+                                processTiedGroup(tbody, tiedTeamsData); // Call function to insert explanations
+                                processedIndices.add(tiedGroupStartIndex);
+                            }
+                        }
+                        tiedGroupStartIndex = -1;
+                    }
+
+                    // If starting a new potential tie with the next element
+                    if (index + 1 < data.standings.length && data.standings[index+1].confRecord === currentRecord) {
+                         if (tiedGroupStartIndex === -1) {
+                            tiedGroupStartIndex = index;
+                         }
+                    }
+                    lastTeamRecord = currentRecord;
+                }
+
                 table.appendChild(tbody);
                 standingsDiv.innerHTML = '';
                 standingsDiv.appendChild(table);
 
             } catch (error) {
-                console.error('Error:', error);
-                standingsDiv.innerHTML = `
+                 console.error('Error:', error);
+                 standingsDiv.innerHTML = `
                     <div class="error">
                         Error loading standings. Please try refreshing the page.
                         <br>
@@ -419,10 +480,78 @@
                     </div>
                 `;
             }
-            
-            // Load standings when page loads
-            document.addEventListener('DOMContentLoaded', fetchStandings);
         }
+
+        // Processes a group of tied teams: inserts explanation rows
+        function processTiedGroup(tbody, tiedTeams) {
+            const confRecord = tiedTeams[0].team.confRecord;
+
+            for (let i = 0; i < tiedTeams.length - 1; i++) {
+                const team1Data = tiedTeams[i];
+                const team2Data = tiedTeams[i + 1];
+                const team1 = team1Data.team;
+                const team2 = team2Data.team;
+                let explanation = '';
+
+                // --- Generate Explanation Logic (Same as before) ---
+                 // Two-way tie at 8-1
+                 if (confRecord === '8-1' && team1.team === 'Texas Tech' && team2.team === 'Oklahoma State') {
+                    explanation = 'Texas Tech wins tiebreaker over Oklahoma State due to head-to-head victory.';
+                }
+                // Five-way tie at 6-3
+                else if (confRecord === '6-3' && tiedTeams.length === 5) {
+                    if (team1.team === 'Arizona' && team2.team === 'Arizona State') {
+                        explanation = 'Tiebreaker Step 1 (Mini Round-Robin): Arizona ranked #1 in group (2-0 record vs tied teams).';
+                    } else if (team1.team === 'Arizona State' && team2.team === 'TCU') {
+                         explanation = 'Tiebreaker Step 1 (Mini Round-Robin): Arizona State ranked #2 in group (1-1 record vs tied teams).';
+                    } else if (team1.team === 'TCU' && team2.team === 'Baylor') {
+                        explanation = 'Tiebreaker Step 4 (Record vs Highest): TCU ranked #3, Baylor #4 based on record vs #2 Texas Tech (after 0-0 mini round-robin tie).';
+                    } else if (team1.team === 'Baylor' && team2.team === 'BYU') {
+                         explanation = 'Tiebreaker Step 1 (Mini Round-Robin): BYU ranked #5 in group (0-2 record vs tied teams).';
+                    }
+                }
+                // Three-way tie at 1-9
+                 else if (confRecord === '1-9' && tiedTeams.length === 3) {
+                    if (team1.team === 'West Virginia' && team2.team === 'Cincinnati') {
+                        explanation = 'Tiebreaker Step 1 (Mini Round-Robin): West Virginia ranked #1 in group (2-0 record vs tied teams).';
+                    } else if (team1.team === 'Cincinnati' && team2.team === 'Houston') {
+                         explanation = 'Tiebreaker Step 1 (Mini Round-Robin): Cincinnati ranked #2 (1-1 record), Houston ranked #3 (0-2 record) vs tied teams.';
+                    }
+                }
+                // Default
+                else {
+                    if (team1.ita_rank && team2.ita_rank) { explanation = `${team1.team} wins tiebreaker over ${team2.team} due to higher ITA ranking (#${team1.ita_rank} vs #${team2.ita_rank}).`; }
+                    else if (team1.ita_rank) { explanation = `${team1.team} wins tiebreaker over ${team2.team} due to having an ITA ranking (#${team1.ita_rank}).`; }
+                    else if (team2.ita_rank) { explanation = `${team1.team} loses tiebreaker to ${team2.team} due to lower ITA ranking (Unranked vs #${team2.ita_rank}).`; }
+                    else { explanation = 'Teams remain tied after initial tiebreakers.'; }
+                }
+                // --- End Explanation Logic ---
+
+                if (explanation) {
+                    let team1RowElement = tbody.querySelector(`tr[data-original-index="${team1Data.index}"]`);
+
+                    if (team1RowElement) {
+                        // Create and insert the explanation row
+                        const tiebreakerRow = document.createElement('tr');
+                        tiebreakerRow.className = 'tiebreaker-row'; 
+                        tiebreakerRow.innerHTML = `
+                            <td colspan="5">
+                                <div class="tiebreaker-content">
+                                    <div class="tiebreaker-icon">🎾</div>
+                                    <div class="tiebreaker-text">${explanation}</div>
+                                </div>
+                            </td>
+                        `;
+                        team1RowElement.parentNode.insertBefore(tiebreakerRow, team1RowElement.nextSibling);
+                    } else {
+                        console.error("Could not find the row for team index", team1Data.index, team1.team);
+                    }
+                }
+            }
+        }
+
+        // Load standings when page loads
+        document.addEventListener('DOMContentLoaded', fetchStandings);
     </script>
     <script src="https://kit.fontawesome.com/a076d05399.js"></script>
 </body>
