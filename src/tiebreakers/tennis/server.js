@@ -6,7 +6,9 @@ const { generateComprehensiveAnalysis } = require('./tennis_tiebreaker');
 // Get current standings
 router.get('/standings', async (req, res) => {
   try {
+    const { sport = 'womens-tennis' } = req.query;
     const standings = await knex('tennis_standings')
+      .where('sport', sport)
       .orderBy('win_pct', 'desc')
       .orderBy('ita_rank', 'asc');
     res.json(standings);
@@ -19,7 +21,9 @@ router.get('/standings', async (req, res) => {
 // Get remaining matches
 router.get('/matches', async (req, res) => {
   try {
+    const { sport = 'womens-tennis' } = req.query;
     const matches = await knex('tennis_matches')
+      .where('sport', sport)
       .whereNull('winner')
       .orderBy('match_date', 'asc');
     res.json(matches);
@@ -32,7 +36,9 @@ router.get('/matches', async (req, res) => {
 // Get head-to-head results
 router.get('/head-to-head', async (req, res) => {
   try {
-    const headToHead = await knex('tennis_head_to_head');
+    const { sport = 'womens-tennis' } = req.query;
+    const headToHead = await knex('tennis_head_to_head')
+      .where('sport', sport);
     res.json(headToHead);
   } catch (error) {
     console.error('Error fetching head-to-head results:', error);
@@ -43,7 +49,9 @@ router.get('/head-to-head', async (req, res) => {
 // Get current seedings
 router.get('/seedings', async (req, res) => {
   try {
+    const { sport = 'womens-tennis' } = req.query;
     const seedings = await knex('tennis_seedings')
+      .where('sport', sport)
       .orderBy('seed', 'asc');
     res.json(seedings);
   } catch (error) {
@@ -55,13 +63,17 @@ router.get('/seedings', async (req, res) => {
 // Get comprehensive analysis
 router.get('/analysis', async (req, res) => {
   try {
+    const { sport = 'womens-tennis' } = req.query;
     const standings = await knex('tennis_standings')
+      .where('sport', sport)
       .orderBy('win_pct', 'desc')
       .orderBy('ita_rank', 'asc');
     const matches = await knex('tennis_matches')
+      .where('sport', sport)
       .whereNull('winner')
       .orderBy('match_date', 'asc');
-    const headToHead = await knex('tennis_head_to_head');
+    const headToHead = await knex('tennis_head_to_head')
+      .where('sport', sport);
 
     const analysis = generateComprehensiveAnalysis(standings, matches, headToHead);
     res.json(analysis);
@@ -74,19 +86,19 @@ router.get('/analysis', async (req, res) => {
 // Update match result
 router.post('/matches/:id/result', async (req, res) => {
   const { id } = req.params;
-  const { winner } = req.body;
+  const { winner, sport = 'womens-tennis' } = req.body;
 
   try {
     // Start a transaction
     await knex.transaction(async (trx) => {
       // Update match result
       await trx('tennis_matches')
-        .where({ id })
+        .where({ id, sport })
         .update({ winner });
 
       // Get updated match data
       const match = await trx('tennis_matches')
-        .where({ id })
+        .where({ id, sport })
         .first();
 
       // Update standings for both teams
@@ -94,7 +106,7 @@ router.post('/matches/:id/result', async (req, res) => {
       for (const team of teams) {
         const isWinner = team === winner;
         await trx('tennis_standings')
-          .where({ team_name: team })
+          .where({ team_name: team, sport })
           .increment(isWinner ? 'wins' : 'losses', 1)
           .update({
             win_pct: knex.raw('CAST(wins AS FLOAT) / NULLIF(wins + losses, 0)')
@@ -105,22 +117,28 @@ router.post('/matches/:id/result', async (req, res) => {
       await trx('tennis_head_to_head').insert({
         team1: match.home_team,
         team2: match.away_team,
-        winner
+        winner,
+        sport
       });
 
       // Recalculate seedings
       const standings = await trx('tennis_standings')
+        .where('sport', sport)
         .orderBy('win_pct', 'desc')
         .orderBy('ita_rank', 'asc');
       const matches = await trx('tennis_matches')
+        .where('sport', sport)
         .whereNull('winner')
         .orderBy('match_date', 'asc');
-      const headToHead = await trx('tennis_head_to_head');
+      const headToHead = await trx('tennis_head_to_head')
+        .where('sport', sport);
 
       const analysis = generateComprehensiveAnalysis(standings, matches, headToHead);
 
       // Clear existing seedings
-      await trx('tennis_seedings').del();
+      await trx('tennis_seedings')
+        .where('sport', sport)
+        .del();
 
       // Insert new seedings
       for (const [index, team] of analysis.seedings.entries()) {
@@ -130,7 +148,8 @@ router.post('/matches/:id/result', async (req, res) => {
           record: `${team.wins}-${team.losses}`,
           win_pct: team.winPct,
           tiebreaker: team.tiebreaker || null,
-          scenario_data: JSON.stringify(team.scenarioData || {})
+          scenario_data: JSON.stringify(team.scenarioData || {}),
+          sport
         });
       }
     });
@@ -144,7 +163,7 @@ router.post('/matches/:id/result', async (req, res) => {
 
 // Add head-to-head result
 router.post('/head-to-head', async (req, res) => {
-  const { team1, team2, winner } = req.body;
+  const { team1, team2, winner, sport = 'womens-tennis' } = req.body;
 
   try {
     await knex.transaction(async (trx) => {
@@ -152,22 +171,28 @@ router.post('/head-to-head', async (req, res) => {
       await trx('tennis_head_to_head').insert({
         team1,
         team2,
-        winner
+        winner,
+        sport
       });
 
       // Recalculate seedings
       const standings = await trx('tennis_standings')
+        .where('sport', sport)
         .orderBy('win_pct', 'desc')
         .orderBy('ita_rank', 'asc');
       const matches = await trx('tennis_matches')
+        .where('sport', sport)
         .whereNull('winner')
         .orderBy('match_date', 'asc');
-      const headToHead = await trx('tennis_head_to_head');
+      const headToHead = await trx('tennis_head_to_head')
+        .where('sport', sport);
 
       const analysis = generateComprehensiveAnalysis(standings, matches, headToHead);
 
       // Clear existing seedings
-      await trx('tennis_seedings').del();
+      await trx('tennis_seedings')
+        .where('sport', sport)
+        .del();
 
       // Insert new seedings
       for (const [index, team] of analysis.seedings.entries()) {
@@ -177,7 +202,8 @@ router.post('/head-to-head', async (req, res) => {
           record: `${team.wins}-${team.losses}`,
           win_pct: team.winPct,
           tiebreaker: team.tiebreaker || null,
-          scenario_data: JSON.stringify(team.scenarioData || {})
+          scenario_data: JSON.stringify(team.scenarioData || {}),
+          sport
         });
       }
     });

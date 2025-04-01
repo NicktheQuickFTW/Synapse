@@ -1,22 +1,22 @@
 const knex = require('./knex');
 
 const standings = [
-  { team_name: "UCF", wins: 9, losses: 1, win_pct: 0.900, ita_rank: 15 },
-  { team_name: "Texas Tech", wins: 8, losses: 1, win_pct: 0.889, ita_rank: 18 },
-  { team_name: "Oklahoma State", wins: 8, losses: 1, win_pct: 0.889, ita_rank: 22 },
-  { team_name: "Baylor", wins: 6, losses: 3, win_pct: 0.667, ita_rank: 25 },
-  { team_name: "BYU", wins: 6, losses: 3, win_pct: 0.667, ita_rank: 32 },
-  { team_name: "Arizona", wins: 6, losses: 3, win_pct: 0.667, ita_rank: 38 },
-  { team_name: "Arizona State", wins: 6, losses: 3, win_pct: 0.667, ita_rank: 42 },
-  { team_name: "TCU", wins: 6, losses: 3, win_pct: 0.667, ita_rank: 36 },
-  { team_name: "Kansas State", wins: 4, losses: 3, win_pct: 0.571, ita_rank: 58 },
-  { team_name: "Kansas", wins: 5, losses: 5, win_pct: 0.500, ita_rank: 48 },
-  { team_name: "Iowa State", wins: 4, losses: 6, win_pct: 0.400, ita_rank: 64 },
-  { team_name: "Utah", wins: 2, losses: 7, win_pct: 0.222, ita_rank: 72 },
-  { team_name: "Colorado", wins: 1, losses: 8, win_pct: 0.111, ita_rank: 78 },
-  { team_name: "Cincinnati", wins: 1, losses: 9, win_pct: 0.100, ita_rank: 84 },
-  { team_name: "West Virginia", wins: 1, losses: 9, win_pct: 0.100, ita_rank: 92 },
-  { team_name: "Houston", wins: 1, losses: 9, win_pct: 0.100, ita_rank: 96 }
+  { team_name: "UCF", wins: 9, losses: 1, win_percent: 0.900, ita_rank: 15 },
+  { team_name: "Texas Tech", wins: 8, losses: 1, win_percent: 0.889, ita_rank: 18 },
+  { team_name: "Oklahoma State", wins: 8, losses: 1, win_percent: 0.889, ita_rank: 22 },
+  { team_name: "Baylor", wins: 6, losses: 3, win_percent: 0.667, ita_rank: 25 },
+  { team_name: "BYU", wins: 6, losses: 3, win_percent: 0.667, ita_rank: 32 },
+  { team_name: "Arizona", wins: 6, losses: 3, win_percent: 0.667, ita_rank: 38 },
+  { team_name: "Arizona State", wins: 6, losses: 3, win_percent: 0.667, ita_rank: 42 },
+  { team_name: "TCU", wins: 6, losses: 3, win_percent: 0.667, ita_rank: 36 },
+  { team_name: "Kansas State", wins: 4, losses: 3, win_percent: 0.571, ita_rank: 58 },
+  { team_name: "Kansas", wins: 5, losses: 5, win_percent: 0.500, ita_rank: 48 },
+  { team_name: "Iowa State", wins: 4, losses: 6, win_percent: 0.400, ita_rank: 64 },
+  { team_name: "Utah", wins: 2, losses: 7, win_percent: 0.222, ita_rank: 72 },
+  { team_name: "Colorado", wins: 1, losses: 8, win_percent: 0.111, ita_rank: 78 },
+  { team_name: "Cincinnati", wins: 1, losses: 9, win_percent: 0.100, ita_rank: 84 },
+  { team_name: "West Virginia", wins: 1, losses: 9, win_percent: 0.100, ita_rank: 92 },
+  { team_name: "Houston", wins: 1, losses: 9, win_percent: 0.100, ita_rank: 96 }
 ];
 
 const matches = [

@@ -14,7 +14,9 @@ import {
   Card,
   CardContent,
   Chip,
-  Divider
+  Divider,
+  Tabs,
+  Tab
 } from '@mui/material';
 import { format } from 'date-fns';
 
@@ -22,11 +24,12 @@ const TennisTiebreaker = () => {
   const [analysis, setAnalysis] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [sport, setSport] = useState('womens-tennis');
 
   useEffect(() => {
     const fetchAnalysis = async () => {
       try {
-        const response = await fetch('/api/tennis/analysis');
+        const response = await fetch(`/api/tennis/analysis?sport=${sport}`);
         if (!response.ok) {
           throw new Error('Failed to fetch analysis');
         }
@@ -40,7 +43,12 @@ const TennisTiebreaker = () => {
     };
 
     fetchAnalysis();
-  }, []);
+  }, [sport]);
+
+  const handleSportChange = (event, newValue) => {
+    setSport(newValue);
+    setLoading(true);
+  };
 
   if (loading) {
     return (
@@ -85,8 +93,17 @@ const TennisTiebreaker = () => {
     <Container maxWidth="xl">
       <Box sx={{ my: 4 }}>
         <Typography variant="h4" component="h1" gutterBottom>
-          Big 12 Women's Tennis Tiebreaker Analysis
+          Big 12 Tennis Tiebreaker Analysis
         </Typography>
+
+        <Tabs
+          value={sport}
+          onChange={handleSportChange}
+          sx={{ mb: 3 }}
+        >
+          <Tab value="womens-tennis" label="Women's Tennis" />
+          <Tab value="mens-tennis" label="Men's Tennis" />
+        </Tabs>
 
         {/* Current Standings */}
         <Paper sx={{ p: 2, mb: 3 }}>

@@ -50,7 +50,7 @@ async function addTennisData() {
         .update({
           wins: update.wins,
           losses: update.losses,
-          win_pct: Number((update.wins / (update.wins + update.losses)).toFixed(3))
+          win_percent: Number((update.wins / (update.wins + update.losses)).toFixed(3))
         });
     }
     console.log('Updated standings');
