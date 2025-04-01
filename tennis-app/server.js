@@ -31,7 +31,7 @@ app.use(express.static('public'));
 // Standings API endpoint
 app.get('/api/tennis/standings', async (req, res) => {
     try {
-        // Get team stats including ITA rankings and win/loss records
+        // Get team standings from the wten_standings table
         const query = `
             SELECT 
                 team, 
@@ -40,13 +40,8 @@ app.get('/api/tennis/standings', async (req, res) => {
                 conf_wins, 
                 conf_losses, 
                 ita_rank,
-                CASE 
-                    WHEN (conf_wins + conf_losses) > 0 
-                    THEN CAST(conf_wins AS FLOAT) / (conf_wins + conf_losses)
-                    ELSE 0 
-                END as conf_win_percent
-            FROM tennis_stats 
-            WHERE sport = 'womens-tennis'
+                conf_win_percent
+            FROM wten_standings 
             ORDER BY 
                 conf_win_percent DESC,
                 ita_rank ASC NULLS LAST
@@ -76,11 +71,8 @@ app.get('/api/tennis/team/:teamName', async (req, res) => {
     try {
         const teamName = decodeURIComponent(req.params.teamName);
         
-        // Get team stats
-        const statsQuery = `
-            SELECT * FROM tennis_stats 
-            WHERE sport = 'womens-tennis' AND team = $1
-        `;
+        // 1. Get team stats from wten_standings
+        const statsQuery = `SELECT * FROM wten_standings WHERE team = $1`;
         const statsResult = await pool.query(statsQuery, [teamName]);
         
         if (statsResult.rows.length === 0) {
@@ -88,45 +80,12 @@ app.get('/api/tennis/team/:teamName', async (req, res) => {
         }
         const team = statsResult.rows[0];
 
-        // 1. Get COMPLETED matches from tennis_stats schedule column
-        let completedMatchesRaw = [];
-        try {
-            if (team.schedule) {
-                completedMatchesRaw = typeof team.schedule === 'string' 
-                    ? JSON.parse(team.schedule) 
-                    : team.schedule;
-            }
-        } catch (e) {
-            console.error('Error parsing completed schedule from stats:', e);
-        }
-        
-        const completedMatches = completedMatchesRaw.map(match => {
-            let matchDate = new Date(NaN);
-            try {
-                if (match.date && match.date.includes('/')) {
-                    const parts = match.date.split('/');
-                    matchDate = new Date(`${parts[2]}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}T00:00:00`);
-                } else if (match.date) {
-                    matchDate = new Date(`${match.date}T00:00:00`);
-                }
-            } catch (err) { /* Ignore date parsing errors */ }
-            
-            return {
-                date: matchDate,
-                opponent: match.opponent,
-                location: match.location || 'TBD',
-                result: match.result || 'Result N/A',
-                isUpcoming: false, // Mark as completed
-                isConference: match.isConference || false
-            };
-        }).filter(match => !isNaN(match.date)); // Remove invalid dates
-        
-        // 2. Get UPCOMING matches from tennis_matches table
+        // 2. Get UPCOMING matches from wten_schedules table rows
         let upcomingMatches = [];
         try {
             const upcomingQuery = `
                 SELECT home_team, away_team, match_date, location
-                FROM tennis_matches 
+                FROM wten_schedules 
                 WHERE (home_team = $1 OR away_team = $1)
                   AND match_date >= CURRENT_DATE
                 ORDER BY match_date ASC
@@ -135,7 +94,7 @@ app.get('/api/tennis/team/:teamName', async (req, res) => {
             
             upcomingMatches = upcomingResult.rows.map(match => {
                 const matchDate = new Date(match.match_date);
-                matchDate.setUTCHours(0, 0, 0, 0); // Use UTC date
+                matchDate.setUTCHours(0, 0, 0, 0); // Use UTC date for comparison
                 const isHomeTeam = match.home_team === teamName;
                 
                 return {
@@ -143,22 +102,61 @@ app.get('/api/tennis/team/:teamName', async (req, res) => {
                     opponent: isHomeTeam ? match.away_team : match.home_team,
                     location: match.location || (isHomeTeam ? 'Home' : 'Away'),
                     result: 'Scheduled',
-                    isUpcoming: true, // Mark as upcoming
-                    // Determine if it's a conference match (assuming Big 12 teams are in tennis_stats)
-                    // This part needs refinement based on how conference is tracked for upcoming matches
-                    isConference: true // Placeholder - needs better logic
+                    isUpcoming: true,
+                    isConference: true // Placeholder - Assuming conference
                 };
-            });
+            }).filter(match => !isNaN(match.date));
         } catch (e) {
-            console.error('Error fetching upcoming matches:', e);
+            console.error('Error fetching upcoming matches from wten_schedules rows:', e);
+        }
+
+        // 3. Get COMPLETED matches from the schedule JSONB column in the team's wten_schedules row
+        let completedMatches = [];
+        try {
+            // Find the row in wten_schedules for this team to get its schedule JSON
+            // Assuming the JSON is stored in the row where the team is the home_team
+            // This might need adjustment if that assumption is wrong.
+            const scheduleQuery = `SELECT schedule FROM wten_schedules WHERE home_team = $1 LIMIT 1`;
+            const scheduleResult = await pool.query(scheduleQuery, [teamName]);
+            
+            if (scheduleResult.rows.length > 0 && scheduleResult.rows[0].schedule) {
+                let completedMatchesRaw = [];
+                const scheduleData = scheduleResult.rows[0].schedule;
+                completedMatchesRaw = typeof scheduleData === 'string' 
+                    ? JSON.parse(scheduleData) 
+                    : scheduleData; // Assume it's already JSONB
+
+                completedMatches = completedMatchesRaw.map(match => {
+                    let matchDate = new Date(NaN);
+                    try {
+                        if (match.date && match.date.includes('/')) {
+                            const parts = match.date.split('/');
+                            matchDate = new Date(`${parts[2]}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}T00:00:00`);
+                        } else if (match.date) {
+                            matchDate = new Date(`${match.date}T00:00:00`);
+                        }
+                    } catch (err) { /* Ignore date parsing errors */ }
+                    
+                    return {
+                        date: matchDate,
+                        opponent: match.opponent,
+                        location: match.location || 'TBD',
+                        result: match.result || 'Result N/A',
+                        isUpcoming: false, // Mark as completed
+                        isConference: match.isConference || false
+                    };
+                }).filter(match => !isNaN(match.date));
+            }
+        } catch (e) {
+            console.error('Error fetching/parsing completed schedule from wten_schedules JSON:', e);
         }
         
         // Combine completed and upcoming matches
         const allMatches = [...completedMatches, ...upcomingMatches];
         
         res.json({
-            team,
-            matches: allMatches
+            team, // Team stats from wten_standings
+            matches: allMatches // Combined matches
         });
     } catch (error) {
         console.error('Error fetching team details:', error);

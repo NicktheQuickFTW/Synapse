@@ -325,28 +325,12 @@
             transform: rotate(180deg);
         }
 
-        .upcoming-matches-section {
-            margin-top: 30px;
-            margin-bottom: 30px;
-        }
-
-        .upcoming-matches {
-            background-color: white;
-            border-radius: 8px;
-            overflow: hidden;
-        }
-
         .upcoming-match {
             background-color: #f0f8ff;
         }
 
         .upcoming-match:hover {
             background-color: #e6f2ff;
-        }
-
-        .view-more {
-            text-align: center;
-            padding: 15px;
         }
 
         .conference-indicator {
@@ -370,19 +354,6 @@
 
         .btn:hover {
             background-color: #333;
-        }
-
-        .legend {
-            margin-top: 20px;
-            padding: 10px;
-            background-color: #f8f9fa;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        .legend-text {
-            font-size: 0.85rem;
-            color: #555;
         }
     </style>
 </head>
@@ -522,64 +493,8 @@
                 standingsDiv.innerHTML = '';
                 standingsDiv.appendChild(table);
 
-                // Add upcoming matches section
-                if (data.standings && data.standings.length > 0) {
-                    // Fetch upcoming matches for the first team to display
-                    try {
-                        const matchesResponse = await fetch(`/api/tennis/team/${encodeURIComponent(data.standings[0].team)}`);
-                        if (matchesResponse.ok) {
-                            const matchesData = await matchesResponse.json();
-                            const upcomingMatches = matchesData.matches
-                                .filter(match => match.isUpcoming)
-                                .sort((a, b) => new Date(a.date) - new Date(b.date))
-                                .slice(0, 5); // Show only the next 5 matches
-                            
-                            if (upcomingMatches.length > 0) {
-                                const upcomingSection = document.createElement('div');
-                                upcomingSection.className = 'upcoming-matches-section';
-                                upcomingSection.innerHTML = `
-                                    <h2 class="section-title">Upcoming Matches</h2>
-                                    <div class="upcoming-matches">
-                                        <table>
-                                            <thead>
-                                                <tr>
-                                                    <th>Date</th>
-                                                    <th>Teams</th>
-                                                    <th>Location</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                ${upcomingMatches.map(match => `
-                                                    <tr class="upcoming-match">
-                                                        <td>${new Date(match.date).toLocaleDateString()}</td>
-                                                        <td>${match.isConference ? '<span class="conference-indicator"></span>' : ''}${data.standings[0].team} vs ${match.opponent}</td>
-                                                        <td>${match.location}</td>
-                                                    </tr>
-                                                `).join('')}
-                                            </tbody>
-                                        </table>
-                                        <div class="view-more">
-                                            <a href="/team/${encodeURIComponent(data.standings[0].team)}" class="btn">View More Matches</a>
-                                        </div>
-                                    </div>
-                                `;
-                                standingsDiv.appendChild(upcomingSection);
-                            }
-                        }
-                    } catch (error) {
-                        console.error('Error loading upcoming matches:', error);
-                    }
-                }
-
-                // Add legend
-                const legendDiv = document.createElement('div');
-                legendDiv.className = 'legend';
-                legendDiv.innerHTML = `
-                    <span class="conference-indicator"></span> 
-                    <span class="legend-text">Conference Match</span>
-                `;
-                standingsDiv.appendChild(legendDiv);
-
+                // REMOVE ROW CLICK HANDLER
+                /*
                 // Add click handlers for tiebreaker rows
                 document.querySelectorAll('.has-tiebreaker').forEach(row => {
                     row.addEventListener('click', function(e) {
@@ -596,6 +511,7 @@
                         }
                     });
                 });
+                */
             } catch (error) {
                 console.error('Error:', error);
                 standingsDiv.innerHTML = `
@@ -609,57 +525,110 @@
         }
 
         function processTiedTeams(tbody, tiedTeams) {
-            // Sort tied teams by ITA rank
-            tiedTeams.sort((a, b) => {
-                if (!a.team.ita_rank && !b.team.ita_rank) return 0;
-                if (!a.team.ita_rank) return 1;
-                if (!b.team.ita_rank) return -1;
-                return a.team.ita_rank - b.team.ita_rank;
-            });
+            // Determine the conference record for this group
+            const confRecord = tiedTeams[0].team.confRecord;
 
-            // Insert tiebreaker explanation after each tied team except the last
+            // Iterate through the pairs of tied teams (as ordered by the server)
             for (let i = 0; i < tiedTeams.length - 1; i++) {
-                const currentTeam = tiedTeams[i];
-                const nextTeam = tiedTeams[i + 1];
-                
-                const tiebreakerRow = document.createElement('tr');
-                tiebreakerRow.className = 'tiebreaker-row';
-                
+                const team1 = tiedTeams[i].team;
+                const team2 = tiedTeams[i + 1].team;
                 let explanation = '';
-                // Specific tiebreaker explanations for certain team pairs
-                if (currentTeam.team.team === 'Texas Tech' && nextTeam.team.team === 'Oklahoma State') {
-                    explanation = 'Texas Tech wins tiebreaker over Oklahoma State due to head-to-head victory';
-                } else if (currentTeam.team.team === 'West Virginia' && nextTeam.team.team === 'Houston') {
-                    explanation = 'West Virginia wins tiebreaker over Houston due to head-to-head victory';
-                } else if (currentTeam.team.team === 'Arizona State') {
-                    explanation = 'Arizona State (2-0) wins mini round-robin among 5 teams tied at 6-3';
-                } else if (currentTeam.team.team === 'Arizona') {
-                    explanation = 'Arizona (1-1) places second in mini round-robin among 5 teams tied at 6-3';
-                } else if (currentTeam.team.team === 'Baylor') {
-                    explanation = 'Baylor wins head-to-head tiebreaker over TCU after both tied at 0-0 in mini round-robin';
-                } else if (currentTeam.team.team === 'TCU') {
-                    explanation = 'TCU places 7th after losing head-to-head tiebreaker with Baylor (both 0-0 in mini round-robin)';
-                } else if (currentTeam.team.team === 'BYU') {
-                    explanation = 'BYU (0-2) places 8th in mini round-robin among 5 teams tied at 6-3';
+
+                // --- Specific Tiebreaker Explanations --- 
+
+                // Two-way tie at 8-1 (Tech vs OSU)
+                if (confRecord === '8-1' && team1.team === 'Texas Tech' && team2.team === 'Oklahoma State') {
+                    explanation = 'Texas Tech wins tiebreaker over Oklahoma State due to head-to-head victory.';
+                }
+                // Five-way tie at 6-3 (Ranked: AZ > ASU > TCU > Baylor > BYU)
+                else if (confRecord === '6-3' && tiedTeams.length === 5) {
+                    if (team1.team === 'Arizona' && team2.team === 'Arizona State') {
+                        explanation = 'Tiebreaker Step 1 (Mini Round-Robin): Arizona ranked #1 in group (2-0 record vs tied teams).';
+                    } else if (team1.team === 'Arizona State' && team2.team === 'TCU') {
+                         explanation = 'Tiebreaker Step 1 (Mini Round-Robin): Arizona State ranked #2 in group (1-1 record vs tied teams).';
+                    } else if (team1.team === 'TCU' && team2.team === 'Baylor') {
+                        explanation = 'Tiebreaker Step 4 (Record vs Highest): TCU ranked #3, Baylor #4 based on record vs #2 Texas Tech (after 0-0 mini round-robin tie).';
+                    } else if (team1.team === 'Baylor' && team2.team === 'BYU') {
+                         explanation = 'Tiebreaker Step 1 (Mini Round-Robin): BYU ranked #5 in group (0-2 record vs tied teams).';
+                    }
+                }
+                // Three-way tie at 1-9 (Ranked: WVU > Cincy > Houston)
+                 else if (confRecord === '1-9' && tiedTeams.length === 3) {
+                    if (team1.team === 'West Virginia' && team2.team === 'Cincinnati') {
+                        explanation = 'Tiebreaker Step 1 (Mini Round-Robin): West Virginia ranked #1 in group (2-0 record vs tied teams).';
+                    } else if (team1.team === 'Cincinnati' && team2.team === 'Houston') {
+                         explanation = 'Tiebreaker Step 1 (Mini Round-Robin): Cincinnati ranked #2 (1-1 record), Houston ranked #3 (0-2 record) vs tied teams.';
+                    }
+                }
+                // --- Default Tiebreaker (ITA Rank if not covered above) ---
+                else {
+                    if (team1.ita_rank && team2.ita_rank) {
+                        explanation = `${team1.team} wins tiebreaker over ${team2.team} due to higher ITA ranking (#${team1.ita_rank} vs #${team2.ita_rank}).`;
+                    } else if (team1.ita_rank) {
+                        explanation = `${team1.team} wins tiebreaker over ${team2.team} due to having an ITA ranking (#${team1.ita_rank}).`;
+                    } else if (team2.ita_rank) {
+                        explanation = `${team1.team} loses tiebreaker to ${team2.team} due to lower ITA ranking (Unranked vs #${team2.ita_rank}).`;
+                    } else {
+                        explanation = 'Teams remain tied after initial tiebreakers (further steps may apply).';
+                    }
                 }
 
-                tiebreakerRow.innerHTML = `
-                    <td colspan="5">
-                        <div class="tiebreaker-content">
-                            <div class="tiebreaker-icon">🎾</div>
-                            <div class="tiebreaker-text">${explanation}</div>
-                        </div>
-                    </td>
-                `;
-                
-                // Insert after the current team's row
-                const currentTeamRow = tbody.children[tbody.children.length - 1];
-                tbody.insertBefore(tiebreakerRow, currentTeamRow.nextSibling);
+                // Insert the explanation row only if an explanation was generated
+                if (explanation) {
+                    const tiebreakerRow = document.createElement('tr');
+                    tiebreakerRow.className = 'tiebreaker-row';
+                    tiebreakerRow.innerHTML = `
+                        <td colspan="5">
+                            <div class="tiebreaker-content">
+                                <div class="tiebreaker-icon">🎾</div>
+                                <div class="tiebreaker-text">${explanation}</div>
+                            </div>
+                        </td>
+                    `;
+                    
+                    // Find the row element for team1 to insert after
+                    let firstTeamRowElement = findTeamRowByIndex(tbody, tiedTeams[i].index);
+
+                    if (firstTeamRowElement) {
+                        // Insert after the row corresponding to team1
+                         tbody.insertBefore(tiebreakerRow, firstTeamRowElement.nextSibling);
+                    } else {
+                        console.error("Could not find the anchor row to insert tiebreaker info for", team1.team);
+                    }
+                }
             }
         }
 
+        // Helper function to find team row by its original index in the standings data
+        function findTeamRowByIndex(tbody, index) {
+            const allTeamRows = tbody.querySelectorAll('tr:not(.tiebreaker-row)');
+            if (index < allTeamRows.length) {
+                return allTeamRows[index];
+            }
+            return null;
+        }
+
+        // Add click handlers for tiebreaker ARROWS
+        function addArrowClickHandlers() {
+             document.querySelectorAll('.tiebreaker-arrow').forEach(arrow => {
+                arrow.addEventListener('click', function(e) {
+                    e.stopPropagation(); // Prevent triggering row click if any
+                    const parentRow = this.closest('tr');
+                    const nextRow = parentRow ? parentRow.nextElementSibling : null;
+                    
+                    if (nextRow && nextRow.classList.contains('tiebreaker-row')) {
+                        nextRow.classList.toggle('show');
+                        this.classList.toggle('rotated');
+                    }
+                });
+            });
+        }
+
         // Load standings when page loads
-        document.addEventListener('DOMContentLoaded', fetchStandings);
+        document.addEventListener('DOMContentLoaded', async () => {
+            await fetchStandings(); // Wait for standings to load
+            addArrowClickHandlers(); // Then add click handlers to the arrows
+        });
     </script>
     <script src="https://kit.fontawesome.com/a076d05399.js"></script>
 </body>
