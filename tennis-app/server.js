@@ -74,7 +74,7 @@ app.get('/api/tennis/standings', async (req, res) => {
 // Team details API endpoint
 app.get('/api/tennis/team/:teamName', async (req, res) => {
     try {
-        const teamName = req.params.teamName;
+        const teamName = decodeURIComponent(req.params.teamName);
         
         // Get team stats
         const statsQuery = `
@@ -86,43 +86,79 @@ app.get('/api/tennis/team/:teamName', async (req, res) => {
         if (statsResult.rows.length === 0) {
             return res.status(404).json({ error: 'Team not found' });
         }
+        const team = statsResult.rows[0];
 
-        // Get team matches with the correct column names
-        const matchesQuery = `
-            SELECT home_team, away_team, match_date, location, winner
-            FROM tennis_matches 
-            WHERE home_team = $1 OR away_team = $1
-            ORDER BY match_date ASC
-        `;
-        
-        const matchesResult = await pool.query(matchesQuery, [teamName]);
-        
-        // Format matches data based on available columns
-        const matches = matchesResult.rows.map(match => {
-            const isHomeTeam = match.home_team === teamName;
-            const opponent = isHomeTeam ? match.away_team : match.home_team;
-            // Since there's no score, we'll just show if they're the winner or not
-            let result = 'Scheduled';
-            if (match.winner) {
-                result = match.winner === teamName ? 'W' : 'L';
+        // 1. Get COMPLETED matches from tennis_stats schedule column
+        let completedMatchesRaw = [];
+        try {
+            if (team.schedule) {
+                completedMatchesRaw = typeof team.schedule === 'string' 
+                    ? JSON.parse(team.schedule) 
+                    : team.schedule;
             }
-            
-            // Check if the match is in the future
-            const matchDate = new Date(match.match_date);
-            const isUpcoming = matchDate > new Date();
+        } catch (e) {
+            console.error('Error parsing completed schedule from stats:', e);
+        }
+        
+        const completedMatches = completedMatchesRaw.map(match => {
+            let matchDate = new Date(NaN);
+            try {
+                if (match.date && match.date.includes('/')) {
+                    const parts = match.date.split('/');
+                    matchDate = new Date(`${parts[2]}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}T00:00:00`);
+                } else if (match.date) {
+                    matchDate = new Date(`${match.date}T00:00:00`);
+                }
+            } catch (err) { /* Ignore date parsing errors */ }
             
             return {
-                date: match.match_date,
-                opponent,
-                location: match.location || (isHomeTeam ? 'Home' : 'Away'),
-                isUpcoming,
-                result
+                date: matchDate,
+                opponent: match.opponent,
+                location: match.location || 'TBD',
+                result: match.result || 'Result N/A',
+                isUpcoming: false, // Mark as completed
+                isConference: match.isConference || false
             };
-        });
+        }).filter(match => !isNaN(match.date)); // Remove invalid dates
+        
+        // 2. Get UPCOMING matches from tennis_matches table
+        let upcomingMatches = [];
+        try {
+            const upcomingQuery = `
+                SELECT home_team, away_team, match_date, location
+                FROM tennis_matches 
+                WHERE (home_team = $1 OR away_team = $1)
+                  AND match_date >= CURRENT_DATE
+                ORDER BY match_date ASC
+            `;
+            const upcomingResult = await pool.query(upcomingQuery, [teamName]);
+            
+            upcomingMatches = upcomingResult.rows.map(match => {
+                const matchDate = new Date(match.match_date);
+                matchDate.setUTCHours(0, 0, 0, 0); // Use UTC date
+                const isHomeTeam = match.home_team === teamName;
+                
+                return {
+                    date: matchDate,
+                    opponent: isHomeTeam ? match.away_team : match.home_team,
+                    location: match.location || (isHomeTeam ? 'Home' : 'Away'),
+                    result: 'Scheduled',
+                    isUpcoming: true, // Mark as upcoming
+                    // Determine if it's a conference match (assuming Big 12 teams are in tennis_stats)
+                    // This part needs refinement based on how conference is tracked for upcoming matches
+                    isConference: true // Placeholder - needs better logic
+                };
+            });
+        } catch (e) {
+            console.error('Error fetching upcoming matches:', e);
+        }
+        
+        // Combine completed and upcoming matches
+        const allMatches = [...completedMatches, ...upcomingMatches];
         
         res.json({
-            team: statsResult.rows[0],
-            matches
+            team,
+            matches: allMatches
         });
     } catch (error) {
         console.error('Error fetching team details:', error);

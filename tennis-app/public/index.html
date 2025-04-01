@@ -324,6 +324,66 @@
         .tiebreaker-arrow.rotated {
             transform: rotate(180deg);
         }
+
+        .upcoming-matches-section {
+            margin-top: 30px;
+            margin-bottom: 30px;
+        }
+
+        .upcoming-matches {
+            background-color: white;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .upcoming-match {
+            background-color: #f0f8ff;
+        }
+
+        .upcoming-match:hover {
+            background-color: #e6f2ff;
+        }
+
+        .view-more {
+            text-align: center;
+            padding: 15px;
+        }
+
+        .conference-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background-color: #000;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 8px 16px;
+            background-color: #000;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+        }
+
+        .btn:hover {
+            background-color: #333;
+        }
+
+        .legend {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .legend-text {
+            font-size: 0.85rem;
+            color: #555;
+        }
     </style>
 </head>
 <body>
@@ -461,6 +521,64 @@
                 table.appendChild(tbody);
                 standingsDiv.innerHTML = '';
                 standingsDiv.appendChild(table);
+
+                // Add upcoming matches section
+                if (data.standings && data.standings.length > 0) {
+                    // Fetch upcoming matches for the first team to display
+                    try {
+                        const matchesResponse = await fetch(`/api/tennis/team/${encodeURIComponent(data.standings[0].team)}`);
+                        if (matchesResponse.ok) {
+                            const matchesData = await matchesResponse.json();
+                            const upcomingMatches = matchesData.matches
+                                .filter(match => match.isUpcoming)
+                                .sort((a, b) => new Date(a.date) - new Date(b.date))
+                                .slice(0, 5); // Show only the next 5 matches
+                            
+                            if (upcomingMatches.length > 0) {
+                                const upcomingSection = document.createElement('div');
+                                upcomingSection.className = 'upcoming-matches-section';
+                                upcomingSection.innerHTML = `
+                                    <h2 class="section-title">Upcoming Matches</h2>
+                                    <div class="upcoming-matches">
+                                        <table>
+                                            <thead>
+                                                <tr>
+                                                    <th>Date</th>
+                                                    <th>Teams</th>
+                                                    <th>Location</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                ${upcomingMatches.map(match => `
+                                                    <tr class="upcoming-match">
+                                                        <td>${new Date(match.date).toLocaleDateString()}</td>
+                                                        <td>${match.isConference ? '<span class="conference-indicator"></span>' : ''}${data.standings[0].team} vs ${match.opponent}</td>
+                                                        <td>${match.location}</td>
+                                                    </tr>
+                                                `).join('')}
+                                            </tbody>
+                                        </table>
+                                        <div class="view-more">
+                                            <a href="/team/${encodeURIComponent(data.standings[0].team)}" class="btn">View More Matches</a>
+                                        </div>
+                                    </div>
+                                `;
+                                standingsDiv.appendChild(upcomingSection);
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Error loading upcoming matches:', error);
+                    }
+                }
+
+                // Add legend
+                const legendDiv = document.createElement('div');
+                legendDiv.className = 'legend';
+                legendDiv.innerHTML = `
+                    <span class="conference-indicator"></span> 
+                    <span class="legend-text">Conference Match</span>
+                `;
+                standingsDiv.appendChild(legendDiv);
 
                 // Add click handlers for tiebreaker rows
                 document.querySelectorAll('.has-tiebreaker').forEach(row => {

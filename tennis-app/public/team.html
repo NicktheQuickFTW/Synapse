@@ -234,6 +234,39 @@
         .upcoming-match {
             background-color: #f0f8ff;
         }
+
+        .legend {
+            margin-top: 20px;
+            margin-bottom: 20px;
+            text-align: center;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+        }
+
+        .legend-text {
+            margin-left: 5px;
+            color: #6c757d;
+            font-size: 0.85rem;
+        }
+
+        .upcoming-matches {
+            background-color: white;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 30px;
+        }
+
+        .upcoming-match:hover {
+            background-color: #e6f2ff;
+        }
+
+        .no-upcoming-matches {
+            text-align: center;
+            padding: 40px;
+            font-style: italic;
+            color: #666;
+        }
     </style>
 </head>
 <body>
@@ -249,8 +282,8 @@
     </div>
 
     <script>
-        // Get team name from URL
-        const teamName = window.location.pathname.split('/').pop();
+        // Get team name from URL and decode it
+        const teamName = decodeURIComponent(window.location.pathname.split('/').pop());
         
         // Update document title
         document.title = `${teamName} Women's Tennis`;
@@ -260,7 +293,7 @@
             const container = document.getElementById('team-container');
             
             try {
-                const response = await fetch(`/api/tennis/team/${teamName}`);
+                const response = await fetch(`/api/tennis/team/${encodeURIComponent(teamName)}`);
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
@@ -295,9 +328,6 @@
                     </div>
                 `;
                 
-                // Add matches section
-                html += `<h2 class="section-title">Match Results</h2>`;
-                
                 if (matches.length === 0) {
                     html += `
                         <div class="no-matches">
@@ -310,19 +340,20 @@
                     const upcomingMatches = matches.filter(match => match.isUpcoming);
                     const completedMatches = matches.filter(match => !match.isUpcoming);
                     
-                    // If there are upcoming matches, display them first
+                    // First display upcoming matches
                     if (upcomingMatches.length > 0) {
-                        html += `<h3 class="subsection-title">Upcoming Matches</h3>`;
+                        html += `<h2 class="section-title">Upcoming Matches</h2>`;
                         html += `
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>Date</th>
-                                        <th>Opponent</th>
-                                        <th>Location</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
+                            <div class="upcoming-matches">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>Date</th>
+                                            <th>Opponent</th>
+                                            <th>Location</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
                         `;
                         
                         // Sort upcoming matches by date (ascending - next match first)
@@ -332,21 +363,30 @@
                                 html += `
                                     <tr class="upcoming-match">
                                         <td>${new Date(match.date).toLocaleDateString()}</td>
-                                        <td>${match.opponent}</td>
+                                        <td>${match.isConference ? '<span class="conference-indicator"></span>' : ''}${match.opponent}</td>
                                         <td>${match.location}</td>
                                     </tr>
                                 `;
                             });
                         
                         html += `
-                                </tbody>
-                            </table>
+                                    </tbody>
+                                </table>
+                            </div>
+                        `;
+                    } else {
+                        // Add a message if no upcoming matches are scheduled
+                        html += `
+                            <div class="no-upcoming-matches">
+                                <p class="text-center text-muted">No upcoming matches currently scheduled.</p>
+                            </div>
                         `;
                     }
                     
-                    // Display completed matches if any
+                    // Then display completed matches
                     if (completedMatches.length > 0) {
-                        html += `<h3 class="subsection-title">Completed Matches</h3>`;
+                        html += `<h2 class="section-title">Match Results</h2>`;
+                        html += `<h3 class="subsection-title">Season Results (First Match to Latest)</h3>`;
                         html += `
                             <table>
                                 <thead>
@@ -360,16 +400,16 @@
                                 <tbody>
                         `;
                         
-                        // Sort completed matches by date (descending - most recent first)
+                        // Sort completed matches by date (ascending - first match of season on top)
                         completedMatches
-                            .sort((a, b) => new Date(b.date) - new Date(a.date))
+                            .sort((a, b) => new Date(a.date) - new Date(b.date))
                             .forEach(match => {
                                 const resultClass = match.result === 'W' ? 'result-win' : 
                                                 match.result === 'L' ? 'result-loss' : '';
                                 html += `
                                     <tr>
                                         <td>${new Date(match.date).toLocaleDateString()}</td>
-                                        <td>${match.opponent}</td>
+                                        <td>${match.isConference ? '<span class="conference-indicator"></span>' : ''}${match.opponent}</td>
                                         <td>${match.location}</td>
                                         <td class="${resultClass}">${match.result}</td>
                                     </tr>
@@ -381,6 +421,14 @@
                             </table>
                         `;
                     }
+                    
+                    // Add legend for conference games at the bottom
+                    html += `
+                        <div class="legend">
+                            <span class="conference-indicator"></span> 
+                            <span class="legend-text">Conference Match</span>
+                        </div>
+                    `;
                 }
                 
                 container.innerHTML = html;
