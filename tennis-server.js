@@ -5,6 +5,8 @@ const axios = require('axios');
 const winston = require('winston');
 const fs = require('fs');
 const path = require('path');
+const bodyParser = require('body-parser');
+const knex = require('./src/db/knex');
 // Import tiebreaker functions
 const { applyTiebreakers, getHeadToHead } = require('./src/tiebreakers/tennis/tennis_tiebreaker');
 
@@ -151,8 +153,12 @@ app.get('/standings', async (req, res) => {
     const displayStandings = finalStandings.map((team, index) => ({
         seed: team.seed || (index + 1), // Keep the calculated seed
         team: team.team,
-        confRecord: team.confRecord, // Add the conference record
-        tiebreaker: team.tiebreaker // Include the tiebreaker reason
+        ita_rank: team.ita_rank,
+        wins: team.wins,
+        losses: team.losses,
+        win_percentage: team.winPercent,
+        confRecord: team.confRecord,
+        tiebreaker: team.tiebreaker
     }));
     
     res.json({ standings: displayStandings });
@@ -181,6 +187,11 @@ app.get('/stats', (req, res) => {
   
   logger.info('Fetched tennis stats');
   res.json({ stats });
+});
+
+// Add route to serve the tiebreaker HTML
+app.get('/tiebreakers/tennis', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'tiebreaker.html'));
 });
 
 // Start the server

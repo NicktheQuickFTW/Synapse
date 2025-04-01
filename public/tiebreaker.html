@@ -95,6 +95,16 @@
             font-size: 1.2rem;
         }
         
+        .seed-rank-column {
+            width: 40px;
+            font-weight: bold;
+            font-size: 1.2rem;
+            text-align: center;
+            margin-right: 15px;
+            color: var(--primary-color);
+            flex-shrink: 0;
+        }
+        
         .seed-info {
             flex: 1;
         }
@@ -494,15 +504,16 @@
                     
                     let seedingsHtml = '<div class="mb-4">';
                     
-                    // Display seedings
+                    // Display seedings with new column structure
                     data.final_seedings.forEach(team => {
                         const tiebreakerInfo = team.tiebreaker_applied 
                             ? `<div class="seed-tiebreaker"><i class="fas fa-exclamation-triangle me-1"></i>Tiebreaker: ${team.tiebreaker_applied}</div>` 
                             : '';
                             
+                        // Updated HTML structure for seed card with separate column for seed number
                         seedingsHtml += `
                             <div class="seed-card">
-                                <div class="seed-number">${team.seed}</div>
+                                <div class="seed-rank-column">${team.seed}</div>
                                 <div class="seed-info">
                                     <div class="seed-team">${team.team}</div>
                                     <div class="seed-record">
@@ -518,41 +529,52 @@
                     
                     seedingsHtml += '</div>';
                     
-                    // Add regular standings table
-                    seedingsHtml += `
-                        <h5 class="mt-4 mb-3"><i class="fas fa-table me-2"></i>Regular Season Standings</h5>
-                        <div class="table-responsive">
-                            <table class="table table-striped table-hover">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>Team</th>
-                                        <th>MP</th>
-                                        <th>W</th>
-                                        <th>L</th>
-                                        <th>Win %</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                    `;
-                    
-                    data.regular_standings.forEach(team => {
+                    // Check if regular_standings exists in the data - it might not from this endpoint
+                    const regular_standings = data.regular_standings || data.final_seedings; // Fallback to final if regular isn't separate
+
+                    if (regular_standings && regular_standings.length > 0) {
+                        // Add regular standings table
                         seedingsHtml += `
-                            <tr>
-                                <td>${team.team}</td>
-                                <td>${team.matches_played}</td>
-                                <td>${team.wins}</td>
-                                <td>${team.losses}</td>
-                                <td>${(team.win_percentage * 100).toFixed(1)}%</td>
-                            </tr>
+                            <h5 class="mt-4 mb-3"><i class="fas fa-table me-2"></i>Regular Season Standings (Approximation)</h5>
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Team</th>
+                                            <th>W</th>
+                                            <th>L</th>
+                                            <th>Win %</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
                         `;
-                    });
-                    
-                    seedingsHtml += '</tbody></table></div>';
-                    
+                        
+                        regular_standings.forEach(team => {
+                             // Ensure win_percentage exists and is a number, default to 0 if not
+                            const winPercentage = (typeof team.win_percentage === 'number') ? team.win_percentage : 0;
+                            seedingsHtml += `
+                                <tr>
+                                    <td>${team.team || 'N/A'}</td>
+                                    <td>${team.wins || 0}</td>
+                                    <td>${team.losses || 0}</td>
+                                    <td>${(winPercentage * 100).toFixed(1)}%</td>
+                                </tr>
+                            `;
+                        });
+                        
+                        seedingsHtml += '</tbody></table></div>';
+                         // Update the wins chart (using final standings as approximation)
+                         updateWinsChart(data.final_seedings);
+                    } else {
+                        // If no regular standings data, maybe hide the chart or show a message
+                        const chartCanvas = document.getElementById('winsChart');
+                        if (chartCanvas) chartCanvas.style.display = 'none'; 
+                    }
+                   
                     seedingsContainer.innerHTML = seedingsHtml;
                     
-                    // Update the wins chart
-                    updateWinsChart(data.regular_standings);
+                    // Update the wins chart (using final standings as approximation)
+                    updateWinsChart(data.final_seedings);
                 })
                 .catch(error => {
                     console.error('Error loading standings:', error);
