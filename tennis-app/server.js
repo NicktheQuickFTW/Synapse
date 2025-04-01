@@ -43,18 +43,12 @@ app.get('/api/tennis/standings', async (req, res) => {
                     WHEN (conf_wins + conf_losses) > 0 
                     THEN CAST(conf_wins AS FLOAT) / (conf_wins + conf_losses)
                     ELSE 0 
-                END as conf_win_percent,
-                CASE 
-                    WHEN (wins + losses) > 0 
-                    THEN CAST(wins AS FLOAT) / (wins + losses)
-                    ELSE 0 
-                END as overall_win_percent
+                END as conf_win_percent
             FROM tennis_stats 
             WHERE sport = 'womens-tennis'
             ORDER BY 
                 conf_win_percent DESC,
-                ita_rank ASC NULLS LAST,
-                overall_win_percent DESC
+                ita_rank ASC NULLS LAST
         `;
         
         const result = await pool.query(query);
@@ -65,9 +59,8 @@ app.get('/api/tennis/standings', async (req, res) => {
             ita_rank: team.ita_rank,
             wins: parseInt(team.wins) || 0,
             losses: parseInt(team.losses) || 0,
-            win_percent: parseFloat(team.conf_win_percent) || 0, // Use conference win percentage
-            confRecord: `${team.conf_wins || 0}-${team.conf_losses || 0}`,
-            tiebreaker: team.ita_rank ? `ITA Rank: #${team.ita_rank}` : 'Unranked'
+            win_percent: parseFloat(team.conf_win_percent) || 0,
+            confRecord: `${team.conf_wins || 0}-${team.conf_losses || 0}`
         }));
 
         res.json({ standings });

@@ -77,7 +77,12 @@
             padding: 20px;
             border-radius: 8px;
             margin-bottom: 30px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            color: white;
+            margin: 0;
         }
 
         .standings-container {
@@ -145,6 +150,49 @@
         .refresh-button:hover {
             background-color: #444;
         }
+
+        .tiebreaker-section {
+            margin-top: 30px;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .tiebreaker-section h2 {
+            font-size: 1.2rem;
+            color: #333;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+
+        .tiebreaker-group {
+            margin-bottom: 15px;
+            padding: 15px;
+            background-color: white;
+            border-radius: 6px;
+            border-left: 4px solid #000;
+        }
+
+        .tiebreaker-group h3 {
+            font-size: 1rem;
+            color: #495057;
+            margin-bottom: 10px;
+            font-weight: 500;
+        }
+
+        .tiebreaker-teams {
+            color: #666;
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+
+        .tiebreaker-explanation {
+            margin-top: 8px;
+            font-size: 0.9rem;
+            color: #888;
+            font-style: italic;
+        }
     </style>
 </head>
 <body>
@@ -195,7 +243,6 @@
                         <th>Overall</th>
                         <th>Conference</th>
                         <th>Conf Win %</th>
-                        <th>Tiebreaker</th>
                     </tr>
                 `;
                 table.appendChild(thead);
@@ -211,7 +258,6 @@
                         <td>${team.wins}-${team.losses}</td>
                         <td>${team.confRecord}</td>
                         <td>${(team.win_percent * 100).toFixed(1)}%</td>
-                        <td><span class="text-muted">${team.tiebreaker}</span></td>
                     `;
                     tbody.appendChild(row);
                 });
@@ -219,6 +265,44 @@
                 table.appendChild(tbody);
                 standingsDiv.innerHTML = '';
                 standingsDiv.appendChild(table);
+
+                // Add tiebreaker explanation section
+                const tiebreakerSection = document.createElement('div');
+                tiebreakerSection.className = 'tiebreaker-section';
+                tiebreakerSection.innerHTML = `
+                    <h2>Tiebreaker Information</h2>
+                    <div class="tiebreaker-group">
+                        <h3>Teams at 8-1</h3>
+                        <div class="tiebreaker-teams">
+                            Teams tied with this record will be ranked by:
+                        </div>
+                        <div class="tiebreaker-explanation">
+                            1. Head-to-head results<br>
+                            2. ITA National Team Ranking
+                        </div>
+                    </div>
+                    <div class="tiebreaker-group">
+                        <h3>Teams at 6-3</h3>
+                        <div class="tiebreaker-teams">
+                            Teams tied with this record will be ranked by:
+                        </div>
+                        <div class="tiebreaker-explanation">
+                            1. Head-to-head results<br>
+                            2. ITA National Team Ranking
+                        </div>
+                    </div>
+                    <div class="tiebreaker-group">
+                        <h3>Teams at 1-9</h3>
+                        <div class="tiebreaker-teams">
+                            Teams tied with this record will be ranked by:
+                        </div>
+                        <div class="tiebreaker-explanation">
+                            1. Head-to-head results<br>
+                            2. ITA National Team Ranking
+                        </div>
+                    </div>
+                `;
+                standingsDiv.appendChild(tiebreakerSection);
             } catch (error) {
                 console.error('Error:', error);
                 standingsDiv.innerHTML = `
