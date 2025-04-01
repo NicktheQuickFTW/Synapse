@@ -1,13 +1,13 @@
 const knex = require('../db/knex');
 require('dotenv').config();
 
-async function queryTennisData() {
+async function queryWomensTennisData() {
     try {
-        console.log('\n=== Big 12 Men\'s Tennis Database Query ===\n');
+        console.log('\n=== Big 12 Women\'s Tennis Database Query ===\n');
 
         // Query all teams ordered by conference rank
         const teams = await knex('team_stats')
-            .where('sport', 'mens-tennis')
+            .where('sport', 'womens-tennis')
             .orderBy('conf_rank', 'asc');
 
         // Display team statistics
@@ -33,10 +33,10 @@ async function queryTennisData() {
         }
 
     } catch (error) {
-        console.error('Error querying tennis data:', error);
+        console.error('Error querying women\'s tennis data:', error);
     } finally {
         await knex.destroy();
     }
 }
 
-queryTennisData(); 
+queryWomensTennisData(); 

@@ -1,7 +1,7 @@
 const knex = require('../db/knex');
 require('dotenv').config();
 
-async function queryTennisData() {
+async function queryMensTennisData() {
     try {
         console.log('\n=== Big 12 Men\'s Tennis Database Query ===\n');
 
@@ -33,10 +33,10 @@ async function queryTennisData() {
         }
 
     } catch (error) {
-        console.error('Error querying tennis data:', error);
+        console.error('Error querying men\'s tennis data:', error);
     } finally {
         await knex.destroy();
     }
 }
 
-queryTennisData(); 
+queryMensTennisData(); 
