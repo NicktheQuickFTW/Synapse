@@ -117,7 +117,7 @@ app.post('/matches', (req, res) => {
 });
 
 // Tiebreaker calculation endpoint
-app.get('/tiebreaker', async (req, res) => {
+app.get('/standings', async (req, res) => {
   logger.info('Calculating women\'s tiebreaker standings');
   const sport = 'womens-tennis'; // Define sport
   try {
@@ -136,17 +136,6 @@ app.get('/tiebreaker', async (req, res) => {
        return res.json({ standings: [] }); // Return empty if no data
     }
     
-    // Ensure teamsData has the format expected by applyTiebreakers (add win_percent if missing)
-    // The python script already calculates based on conf_win_percent, let's use that structure
-    // We might need to fetch more detailed records if applyTiebreakers needs more than team, conf_wins, conf_losses
-    // Let's assume for now it needs: team, conf_wins, conf_losses
-    // Need to read applyTiebreakers more closely - it likely needs wins/losses too
-    // TODO: Refetch data from python/db if needed format differs significantly
-    
-    // For now, let's map the 'points' back to a win percentage for applyTiebreakers if it needs it.
-    // Ideally, the python script should return conf_wins/conf_losses directly.
-    // Let's re-fetch with more detail from python (modify get_data.py later if needed)
-    
     // 2. Fetch head-to-head data using JS function
     const headToHeadData = await getHeadToHead(sport);
     if (!headToHeadData) {
@@ -155,8 +144,6 @@ app.get('/tiebreaker', async (req, res) => {
     }
 
     // 3. Apply tiebreakers using JS function
-    // Assuming teamsData from python has { team, conf_wins, conf_losses, ... } structure needed
-    // If applyTiebreakers modifies the array in place, clone it first if needed
     const finalStandings = applyTiebreakers(teamsData, headToHeadData);
     
     logger.info('Successfully calculated tiebreaker standings.');
@@ -174,6 +161,12 @@ app.get('/tiebreaker', async (req, res) => {
     logger.error(`Error calculating women\'s tiebreaker standings: ${error.response?.data?.error || error.message}`, { stack: error.stack });
     res.status(500).json({ error: 'Failed to calculate tiebreaker standings' });
   }
+});
+
+// Keep the old endpoint for backward compatibility
+app.get('/tiebreaker', (req, res) => {
+  // Redirect to the new endpoint
+  res.redirect('/standings');
 });
 
 // Stats endpoint
@@ -204,11 +197,25 @@ app.listen(PORT, () => {
     name: 'tennis',
     host: 'localhost',
     port: PORT,
-    endpoints: ['/matches', '/tiebreaker', '/stats'],
-    healthCheck: '/health'
-  }).then(() => {
-    logger.info('Registered with MCP server');
-  }).catch(err => {
-    logger.warn('Failed to register with MCP server', err.message);
+    endpoints: ['/matches', '/tiebreaker', '/stats']
+  })
+  .then(() => {
+    logger.info('Successfully registered with MCP server');
+  })
+  .catch(error => {
+    logger.warn(`Failed to register with MCP server: ${error.message}`);
+    // Don't exit, just log the warning
   });
+});
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (error) => {
+  logger.error('Uncaught Exception:', error);
+  // Don't exit, just log the error
+});
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  // Don't exit, just log the error
 }); 

@@ -9,6 +9,24 @@
     <title>Big 12 Women's Tennis Standings</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script>
+        // Configure axios
+        axios.interceptors.request.use(request => {
+            console.log('Starting Request:', request);
+            return request;
+        });
+
+        axios.interceptors.response.use(
+            response => {
+                console.log('Response:', response);
+                return response;
+            },
+            error => {
+                console.log('Response Error:', error);
+                return Promise.reject(error);
+            }
+        );
+    </script>
 </head>
 <body class="bg-gray-100">
     <div class="container mx-auto px-4 py-8 max-w-3xl">
@@ -35,7 +53,7 @@
         async function fetchStandings() {
             try {
                 console.log('Fetching final standings/seedings...');
-                const response = await axios.get('/api/tennis/tiebreaker'); 
+                const response = await axios.get('/api/tennis/standings'); 
                 console.log('Standings response:', response.data);
                 const standings = response.data.standings || [];
                 console.log('Processed standings (final seeding):', standings);
