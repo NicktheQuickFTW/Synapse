@@ -342,85 +342,68 @@ app.get('/streamlit/list', (req, res) => {
 
 // Execute Python script and return result
 app.post('/python/exec', (req, res) => {
-  const { script, args = [], input = null } = req.body;
-  
+  const { script, args = {}, input = null } = req.body;
+
   if (!script) {
+    logger.error('Script parameter missing in /python/exec request');
     return res.status(400).json({ error: 'Script is required' });
   }
-  
-  // Create a temporary file if script is inline
-  let scriptPath;
-  let tempFile = false;
-  
-  if (script.includes('\n')) {
-    // This is inline script content
-    tempFile = true;
-    scriptPath = path.join(os.tmpdir(), `xii-os-temp-${Date.now()}.py`);
-    fs.writeFileSync(scriptPath, script);
-  } else {
-    // This is a script file name
-    scriptPath = script;
-    if (!fs.existsSync(scriptPath)) {
-      return res.status(404).json({ error: `Script not found: ${scriptPath}` });
-    }
+
+  const scriptPath = path.join(__dirname, script);
+  if (!fs.existsSync(scriptPath)) {
+    logger.error(`Script not found at path: ${scriptPath}`);
+    return res.status(404).json({ error: `Script not found: ${script}` });
   }
-  
-  const pythonProcess = spawn('python', [scriptPath, ...args]);
-  
-  if (input) {
-    pythonProcess.stdin.write(input);
+
+  logger.info(`Executing script: ${script} with args: ${JSON.stringify(args)}`);
+
+  try {
+    const pythonProcess = spawn('python', [scriptPath]);
+    let stdoutData = '';
+    let stderrData = '';
+
+    // Handle stdin
+    if (args) {
+      pythonProcess.stdin.write(JSON.stringify(args));
+    }
     pythonProcess.stdin.end();
-  }
-  
-  let outputData = '';
-  let errorData = '';
-  
-  pythonProcess.stdout.on('data', (data) => {
-    outputData += data.toString();
-  });
-  
-  pythonProcess.stderr.on('data', (data) => {
-    errorData += data.toString();
-    logger.warn(`Python stderr: ${data.toString().trim()}`);
-  });
-  
-  pythonProcess.on('error', (error) => {
-    logger.error(`Python error: ${error.message}`);
-    res.status(500).json({ error: `Python error: ${error.message}` });
-  });
-  
-  pythonProcess.on('close', (code) => {
-    // Clean up temp file if created
-    if (tempFile && fs.existsSync(scriptPath)) {
-      fs.unlinkSync(scriptPath);
-    }
-    
-    if (code === 0) {
-      // Try to parse output as JSON if possible
-      try {
-        const jsonOutput = JSON.parse(outputData);
-        res.json({
-          status: 'success',
-          output: jsonOutput,
-          code
-        });
-      } catch (e) {
-        // Not JSON, return as string
-        res.json({
-          status: 'success',
-          output: outputData,
-          code
+
+    pythonProcess.stdout.on('data', (data) => {
+      stdoutData += data.toString();
+    });
+
+    pythonProcess.stderr.on('data', (data) => {
+      stderrData += data.toString();
+      logger.warn(`Python stderr (${script}): ${data.toString().trim()}`);
+    });
+
+    pythonProcess.on('error', (error) => {
+      logger.error(`Failed to start Python script (${script}): ${error.message}`);
+      res.status(500).json({ error: 'Failed to execute Python script', details: error.message });
+    });
+
+    pythonProcess.on('close', (code) => {
+      logger.info(`Python script (${script}) exited with code ${code}`);
+      if (code === 0) {
+        try {
+          const result = JSON.parse(stdoutData);
+          res.json(result);
+        } catch (parseError) {
+          logger.error(`Failed to parse JSON output from Python script (${script}): ${parseError.message}. Output: ${stdoutData}`);
+          res.status(500).json({ error: 'Invalid JSON output from script', details: stdoutData });
+        }
+      } else {
+        logger.error(`Python script (${script}) failed with code ${code}. Stderr: ${stderrData}`);
+        res.status(500).json({ 
+          error: `Python script failed with code ${code}`,
+          details: stderrData || 'No standard error output.'
         });
       }
-    } else {
-      res.status(500).json({
-        status: 'error',
-        output: outputData,
-        error: errorData,
-        code
-      });
-    }
-  });
+    });
+  } catch (spawnError) {
+    logger.error(`Error spawning Python process for ${script}: ${spawnError.message}`);
+    res.status(500).json({ error: 'Failed to spawn Python process', details: spawnError.message });
+  }
 });
 
 // Initialize by creating required files
