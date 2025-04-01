@@ -176,7 +176,7 @@ def get_data(data_type, gender):
                     "conf_losses": int(row.get("conf_losses", 0) or 0),
                     "win_percent": float(row.get("win_percent", 0.0) or 0.0),
                     "conf_win_percent": float(row.get("conf_win_percent", 0.0) or 0.0),
-                    "ita_rank": int(row.get("ita_rank") or 999), # Default if ita_rank column doesn't exist or is NULL
+                    "ita_rank": int(row.get("ita_rank")) if row.get("ita_rank") is not None else None, # Don't default to 999
                     "current_streak": str(row.get("streak", 0) or 0) # Map 'streak' to expected 'current_streak'
                  }
                 # Only add if team name is valid

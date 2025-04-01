@@ -35,26 +35,17 @@ exports.up = function(knex) {
       table.jsonb('scenario_data');
       table.timestamps(true, true);
     })
-    .createTable('tennis_stats', function(table) {
-      table.increments('id').primary();
-      table.string('team').notNullable();
+    .createTable('tennis_stats', table => {
+      table.string('team').primary();
+      table.string('sport');
       table.integer('wins').defaultTo(0);
       table.integer('losses').defaultTo(0);
       table.integer('conf_wins').defaultTo(0);
       table.integer('conf_losses').defaultTo(0);
-      table.decimal('win_percent', 4, 3).defaultTo(0);
-      table.decimal('conf_win_percent', 4, 3).defaultTo(0);
-      table.decimal('points_for', 8, 2).defaultTo(0);
-      table.decimal('points_against', 8, 2).defaultTo(0);
-      table.integer('streak').defaultTo(0);
-      table.integer('max_streak').defaultTo(0);
-      table.integer('conf_streak').defaultTo(0);
-      table.integer('max_conf_streak').defaultTo(0);
-      table.integer('conf_rank').defaultTo(0);
+      table.float('win_percent').defaultTo(0);
       table.integer('ita_rank');
-      table.string('sport').notNullable();
-      table.jsonb('schedule');
-      table.timestamps(true, true);
+      table.string('current_streak').defaultTo('0');
+      table.json('schedule');
     });
 };
 

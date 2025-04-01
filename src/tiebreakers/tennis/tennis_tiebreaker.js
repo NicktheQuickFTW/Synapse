@@ -20,7 +20,7 @@ async function getCurrentStandings(sport = 'womens-tennis') {
       conf_wins: parseInt(team.conf_wins) || 0,
       conf_losses: parseInt(team.conf_losses) || 0,
       win_percent: parseFloat(team.win_percent) || 0,
-      ita_rank: parseInt(team.ita_rank) || 999, // Default to 999 if no ITA rank
+      ita_rank: team.ita_rank ? parseInt(team.ita_rank) : null,
       current_streak: team.current_streak || '0'
     }));
   } catch (error) {
@@ -293,11 +293,12 @@ function applyTiebreakers(teams, headToHeadData) {
     .forEach(([winPercent, tiedTeams]) => {
       // If only one team at this win percentage, no tiebreaker needed
       if (tiedTeams.length === 1) {
+        const currentTeam = tiedTeams[0];
         seedings.push({
           seed: seedings.length + 1,
-          team: tiedTeams[0].team,
-          record: `${tiedTeams[0].wins}-${tiedTeams[0].losses}`,
-          confRecord: `${tiedTeams[0].conf_wins}-${tiedTeams[0].conf_losses}`,
+          team: currentTeam.ita_rank ? `#${currentTeam.ita_rank} ${currentTeam.team}` : currentTeam.team,
+          record: `${currentTeam.wins}-${currentTeam.losses}`,
+          confRecord: `${currentTeam.conf_wins}-${currentTeam.conf_losses}`,
           winPercent: parseFloat(winPercent),
           tiebreaker: "None needed"
         });
@@ -334,9 +335,10 @@ function applyTiebreakers(teams, headToHeadData) {
             tiebreakerReason += ` (${matchDetail.date} at ${matchDetail.location})`;
           }
           
+          // For teams with head-to-head results
           seedings.push({
             seed: seedings.length + 1,
-            team: winnerTeam.team,
+            team: winnerTeam.ita_rank ? `#${winnerTeam.ita_rank} ${winnerTeam.team}` : winnerTeam.team,
             record: `${winnerTeam.wins}-${winnerTeam.losses}`,
             confRecord: `${winnerTeam.conf_wins}-${winnerTeam.conf_losses}`,
             winPercent: parseFloat(winPercent),
@@ -345,32 +347,33 @@ function applyTiebreakers(teams, headToHeadData) {
           
           seedings.push({
             seed: seedings.length + 1,
-            team: loserTeam.team,
+            team: loserTeam.ita_rank ? `#${loserTeam.ita_rank} ${loserTeam.team}` : loserTeam.team,
             record: `${loserTeam.wins}-${loserTeam.losses}`,
             confRecord: `${loserTeam.conf_wins}-${loserTeam.conf_losses}`,
             winPercent: parseFloat(winPercent),
-            tiebreaker: `Lost head-to-head vs ${winnerTeam.team}`
+            tiebreaker: tiebreakerReason
           });
         } else {
           // No head-to-head, use ITA rankings
           tiedTeams.sort((a, b) => a.ita_rank - b.ita_rank);
           
+          // For teams with head-to-head results
           seedings.push({
             seed: seedings.length + 1,
-            team: tiedTeams[0].team,
+            team: tiedTeams[0].ita_rank ? `#${tiedTeams[0].ita_rank} ${tiedTeams[0].team}` : tiedTeams[0].team,
             record: `${tiedTeams[0].wins}-${tiedTeams[0].losses}`,
             confRecord: `${tiedTeams[0].conf_wins}-${tiedTeams[0].conf_losses}`,
             winPercent: parseFloat(winPercent),
-            tiebreaker: `ITA ranking (#${tiedTeams[0].ita_rank} vs #${tiedTeams[1].ita_rank})`
+            tiebreaker: `Higher ITA National Team Ranking`
           });
           
           seedings.push({
             seed: seedings.length + 1,
-            team: tiedTeams[1].team,
+            team: tiedTeams[1].ita_rank ? `#${tiedTeams[1].ita_rank} ${tiedTeams[1].team}` : tiedTeams[1].team,
             record: `${tiedTeams[1].wins}-${tiedTeams[1].losses}`,
             confRecord: `${tiedTeams[1].conf_wins}-${tiedTeams[1].conf_losses}`,
             winPercent: parseFloat(winPercent),
-            tiebreaker: `Lower ITA ranking (#${tiedTeams[1].ita_rank} vs #${tiedTeams[0].ita_rank})`
+            tiebreaker: `Lower ITA National Team Ranking`
           });
         }
       }
@@ -528,7 +531,6 @@ function applyTiebreakers(teams, headToHeadData) {
           
           let tiebreakerReason = '';
           if (total === 0) {
-            // For teams that haven't played any mini round-robin games
             tiebreakerReason = 'No mini round-robin games played';
             
             // Check if there's a head-to-head result against another team in this group
@@ -546,7 +548,7 @@ function applyTiebreakers(teams, headToHeadData) {
             
             // Only add ITA ranking if no head-to-head exists
             if (!hasH2H && team.ita_rank) {
-              tiebreakerReason += `, ITA Rank: ${team.ita_rank}`;
+              tiebreakerReason += `, ITA National Team Ranking: #${team.ita_rank}`;
             }
           } else {
             tiebreakerReason = `Mini round-robin Win %: ${(record.wins / total * 100).toFixed(1)}%`;
@@ -559,7 +561,7 @@ function applyTiebreakers(teams, headToHeadData) {
           
           seedings.push({
             seed: seedings.length + 1,
-            team: team.team,
+            team: team.ita_rank ? `#${team.ita_rank} ${team.team}` : team.team,
             record: `${team.wins}-${team.losses}`,
             confRecord: `${team.conf_wins}-${team.conf_losses}`,
             winPercent: parseFloat(winPercent),
