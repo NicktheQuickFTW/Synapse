@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>COMPASS | XII-OS Analytics</title>
+  
+  <!-- Fonts -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap">
+  
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="css/compass.css">
+  
+  <!-- Chart.js for data visualization -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
+
+  <!-- Custom JavaScript -->
+  <script src="js/compass.js"></script>
+</head>
+<body class="compass-body">
+  <!-- Sport Selector -->
+  <header class="compass-header">
+    <div class="sport-selector">
+      <select id="sport-select" class="sport-select">
+        <option value="wrestling">Wrestling</option>
+        <option value="basketball">Basketball</option>
+        <option value="football">Football</option>
+        <option value="baseball">Baseball</option>
+        <option value="volleyball">Volleyball</option>
+      </select>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="compass-main">
+    <!-- Overview Section -->
+    <section class="compass-section">
+      <div class="compass-grid">
+        <div class="compass-card">
+          <h3>Total COMPASS Score</h3>
+          <div class="compass-stat">
+            <div class="compass-stat-value" id="total-score">-</div>
+            <div class="compass-stat-label">Out of 100</div>
+          </div>
+          <div class="compass-chart">
+            <canvas id="compassScoreChart"></canvas>
+          </div>
+        </div>
+        
+        <div class="compass-card">
+          <h3>Program Ranking</h3>
+          <div class="compass-stat">
+            <div class="compass-stat-value" id="program-rank">-</div>
+            <div class="compass-stat-label">National</div>
+          </div>
+          <div class="compass-trend">
+            <span id="rank-trend" class="trend-neutral">● No change</span>
+          </div>
+        </div>
+        
+        <div class="compass-card">
+          <h3>Conference Standing</h3>
+          <div class="compass-stat">
+            <div class="compass-stat-value" id="conference-rank">-</div>
+            <div class="compass-stat-label">In Conference</div>
+          </div>
+          <div class="compass-trend">
+            <span id="conference-trend" class="trend-neutral">● No change</span>
+          </div>
+        </div>
+        
+        <div class="compass-card">
+          <h3>AI Predictions</h3>
+          <div class="compass-predictions" id="ai-predictions">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Component Breakdown -->
+    <section class="compass-section">
+      <h2>Component Breakdown</h2>
+      <div class="compass-card">
+        <div class="compass-component-grid" id="component-grid">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+    </section>
+
+    <!-- AI Insights -->
+    <section class="compass-section">
+      <h2>AI-Powered Insights</h2>
+      <div class="compass-card">
+        <div class="compass-insights" id="ai-insights">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+    </section>
+
+    <!-- Historical Performance -->
+    <section class="compass-section">
+      <h2>Historical Performance</h2>
+      <div class="compass-card">
+        <div class="compass-chart">
+          <canvas id="historicalChart"></canvas>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Loading Overlay -->
+  <div id="loading-overlay" class="loading-overlay">
+    <div class="loading-spinner"></div>
+    <div class="loading-text">Loading COMPASS data...</div>
+  </div>
+
+  <!-- Error Modal -->
+  <div id="error-modal" class="error-modal">
+    <div class="error-content">
+      <h3>Error</h3>
+      <p id="error-message">An error occurred while loading COMPASS data.</p>
+      <button onclick="COMPASS.handleError()">Try Again</button>
+    </div>
+  </div>
+</body>
+</html> 

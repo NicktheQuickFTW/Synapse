@@ -370,6 +370,15 @@
       margin-top: 0;
     }
     
+    /* Rivalry match styling */
+    .schedule-table tr.rivalry-match {
+      background: rgba(var(--primary-rgb), 0.1);
+    }
+    
+    .schedule-table tr.rivalry-match:hover {
+      background: rgba(var(--primary-rgb), 0.15);
+    }
+    
     /* COMPASS Container Styles */
     .compass-container {
       margin-top: 30px;
@@ -661,10 +670,10 @@
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 6H16M8 12H16M8 18H12M3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           Generate Report
         </button>
-        <button class="compass-button compass-button--primary">
+        <a href="flextime-schedule-builder.html" class="compass-button compass-button--primary">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 5V19M5 12H19" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          Create Schedule
-        </button>
+          Advanced Schedule Builder
+        </a>
       </div>
     </header>
     
@@ -1186,5 +1195,51 @@
       </div>
     </section>
   </main>
+
+  <script>
+    // Initialize the app when the page loads
+    document.addEventListener('DOMContentLoaded', function() {
+      // Connect the "Create Schedule" button to the buildCompleteSchedule function
+      document.querySelector('.compass-header-actions .compass-button--primary').addEventListener('click', function(e) {
+        // If not navigating to the advanced builder, build a schedule
+        if (e.currentTarget.tagName.toLowerCase() !== 'a') {
+          e.preventDefault();
+          buildCompleteSchedule();
+        }
+      });
+      
+      // Connect the "Generate Insights" button to the generateAIInsights function
+      const generateInsightsBtn = document.querySelector('.ai-header .compass-button--primary');
+      if (generateInsightsBtn) {
+        generateInsightsBtn.addEventListener('click', function() {
+          generateAIInsights();
+        });
+      }
+      
+      // Apply rivalry match styling to any existing matches in the schedule
+      const rivalryMatches = [
+        "Oklahoma State vs. Iowa State",
+        "Oklahoma vs. Oklahoma State",
+        "Iowa State vs. Northern Iowa",
+        "North Dakota State vs. South Dakota State",
+        "Air Force vs. Wyoming",
+        "Arizona State vs. Utah Valley"
+      ];
+      
+      // Find schedule rows that contain rivalry matchups and add the rivalry-match class
+      const scheduleRows = document.querySelectorAll('.schedule-table tbody tr');
+      scheduleRows.forEach(row => {
+        const matchupCell = row.querySelector('td:nth-child(2)');
+        if (matchupCell) {
+          const matchup = matchupCell.textContent.trim();
+          
+          // Check if this is a rivalry match
+          if (rivalryMatches.some(rivalryMatch => matchup.includes(rivalryMatch))) {
+            row.classList.add('rivalry-match');
+          }
+        }
+      });
+    });
+  </script>
 </body>
 </html> 

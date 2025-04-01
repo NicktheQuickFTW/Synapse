@@ -1,0 +1,314 @@
+/* COMPASS Dashboard Styles */
+:root {
+  /* Project Obsidian Silver Color Palette */
+  --color-black: #000000;
+  --color-white: #FFFFFF;
+  --color-silver: #C0C0C0;
+  --color-silver-light: #E0E0E0;
+  --color-silver-dark: #808080;
+  --color-silver-darker: #404040;
+  --color-silver-accent: #A0A0A0;
+  
+  /* Typography */
+  --font-primary: 'Inter', sans-serif;
+  --font-size-base: 16px;
+  --font-size-small: 14px;
+  --font-size-large: 18px;
+  --font-size-xlarge: 24px;
+  
+  /* Spacing */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  
+  /* Border Radius */
+  --border-radius-sm: 4px;
+  --border-radius-md: 8px;
+  --border-radius-lg: 12px;
+  
+  /* Transitions */
+  --transition-fast: 150ms ease;
+  --transition-normal: 300ms ease;
+  --transition-slow: 500ms ease;
+}
+
+/* Base Styles */
+body.compass-body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-primary);
+  font-size: var(--font-size-base);
+  background-color: var(--color-black);
+  color: var(--color-white);
+  line-height: 1.5;
+}
+
+/* Header */
+.compass-header {
+  background-color: var(--color-silver-darker);
+  padding: var(--spacing-md);
+  border-bottom: 1px solid var(--color-silver-dark);
+}
+
+.sport-selector {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.sport-select {
+  background-color: var(--color-silver-dark);
+  color: var(--color-white);
+  border: 1px solid var(--color-silver);
+  border-radius: var(--border-radius-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-size: var(--font-size-base);
+  font-family: var(--font-primary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.sport-select:hover {
+  background-color: var(--color-silver);
+  border-color: var(--color-silver-light);
+}
+
+/* Main Content */
+.compass-main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--spacing-lg);
+}
+
+.compass-section {
+  margin-bottom: var(--spacing-xl);
+}
+
+.compass-section h2 {
+  color: var(--color-silver);
+  font-size: var(--font-size-xlarge);
+  margin-bottom: var(--spacing-lg);
+}
+
+/* Grid Layout */
+.compass-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: var(--spacing-lg);
+  margin-bottom: var(--spacing-xl);
+}
+
+/* Cards */
+.compass-card {
+  background-color: var(--color-silver-darker);
+  border-radius: var(--border-radius-md);
+  padding: var(--spacing-lg);
+  border: 1px solid var(--color-silver-dark);
+  transition: transform var(--transition-fast);
+}
+
+.compass-card:hover {
+  transform: translateY(-2px);
+}
+
+.compass-card h3 {
+  color: var(--color-silver);
+  font-size: var(--font-size-large);
+  margin-bottom: var(--spacing-md);
+}
+
+/* Stats */
+.compass-stat {
+  text-align: center;
+  margin-bottom: var(--spacing-md);
+}
+
+.compass-stat-value {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: var(--color-white);
+  margin-bottom: var(--spacing-xs);
+}
+
+.compass-stat-label {
+  color: var(--color-silver);
+  font-size: var(--font-size-small);
+}
+
+/* Trends */
+.compass-trend {
+  text-align: center;
+  font-size: var(--font-size-small);
+}
+
+.trend-up {
+  color: #4CAF50;
+}
+
+.trend-down {
+  color: #F44336;
+}
+
+.trend-neutral {
+  color: var(--color-silver);
+}
+
+/* Charts */
+.compass-chart {
+  height: 200px;
+  margin-top: var(--spacing-md);
+}
+
+/* Component Grid */
+.compass-component-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--spacing-lg);
+}
+
+.compass-component {
+  background-color: var(--color-silver-dark);
+  border-radius: var(--border-radius-md);
+  padding: var(--spacing-md);
+}
+
+.component-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-md);
+}
+
+.component-weight {
+  color: var(--color-silver);
+  font-size: var(--font-size-small);
+}
+
+.score-bar {
+  height: 8px;
+  background-color: var(--color-silver-darker);
+  border-radius: 4px;
+  margin-bottom: var(--spacing-sm);
+}
+
+.score-fill {
+  height: 100%;
+  background-color: var(--color-silver);
+  border-radius: 4px;
+  transition: width var(--transition-normal);
+}
+
+/* AI Insights */
+.compass-insights {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--spacing-lg);
+}
+
+.insight-item {
+  background-color: var(--color-silver-dark);
+  border-radius: var(--border-radius-md);
+  padding: var(--spacing-md);
+}
+
+.insight-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: var(--spacing-sm);
+}
+
+.insight-header svg {
+  margin-right: var(--spacing-sm);
+}
+
+/* Loading Overlay */
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.8);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--color-silver);
+  border-top-color: var(--color-white);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.loading-text {
+  color: var(--color-white);
+  margin-top: var(--spacing-md);
+}
+
+/* Error Modal */
+.error-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.8);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.error-content {
+  background-color: var(--color-silver-darker);
+  padding: var(--spacing-lg);
+  border-radius: var(--border-radius-md);
+  text-align: center;
+}
+
+.error-content button {
+  background-color: var(--color-silver);
+  color: var(--color-black);
+  border: none;
+  padding: var(--spacing-sm) var(--spacing-lg);
+  border-radius: var(--border-radius-sm);
+  cursor: pointer;
+  margin-top: var(--spacing-md);
+  transition: background-color var(--transition-fast);
+}
+
+.error-content button:hover {
+  background-color: var(--color-silver-light);
+}
+
+/* Animations */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .compass-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .compass-component-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .compass-insights {
+    grid-template-columns: 1fr;
+  }
+  
+  .compass-main {
+    padding: var(--spacing-md);
+  }
+} 

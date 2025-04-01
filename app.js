@@ -7,6 +7,7 @@ const rateLimit = require('express-rate-limit');
 const path = require('path');
 require('dotenv').config();
 const { Pool } = require('pg');
+const wrestlingApiRoutes = require('./src/routes/wrestling-api');
 
 // Database connection
 const pool = new Pool({
@@ -433,6 +434,9 @@ const tennisRoutes = require('./tiebreakers/tennis/routes/tennis');
 
 // Add tennis routes
 app.use('/api/tennis', tennisRoutes);
+
+// Add wrestling routes
+app.use('/api/wrestling', wrestlingApiRoutes);
 
 // Serve static files
 app.use(express.static('public'));

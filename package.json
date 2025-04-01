@@ -20,6 +20,7 @@
     "db:migrate": "node -r dotenv/config src/db/migrate.js",
     "db:seed": "node -r dotenv/config src/db/init_tennis_data.js",
     "db:setup": "npm run db:migrate && npm run db:seed",
+    "db:setup:wrestling": "node -r dotenv/config scripts/setup-wrestling-db.js",
     "populate-feeds": "node src/scripts/populate_rss_feeds.js",
     "fetch-schedules": "node src/scripts/fetch_big12_rss.js",
     "update-schedules": "npm run populate-feeds && npm run fetch-schedules",
