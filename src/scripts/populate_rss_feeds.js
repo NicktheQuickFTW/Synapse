@@ -1,58 +1,133 @@
 const knex = require('../config/database');
 
-// List of schools and their RSS feed URLs
 const SCHOOL_FEEDS = [
     {
         school_name: 'Arizona',
-        feed_url: 'https://arizonawildcats.com/rss/womens-tennis.xml',
-        feed_type: 'rss'
+        sport: 'womens-tennis',
+        feed_url: 'file://./data/arizona_womens_tennis.xml',
+        feed_type: 'rss',
+        is_active: true
+    },
+    {
+        school_name: 'Arizona',
+        sport: 'mens-tennis',
+        feed_url: 'file://./data/arizona_mens_tennis.xml',
+        feed_type: 'rss',
+        is_active: true
+    },
+    {
+        school_name: 'Arizona',
+        sport: 'womens-basketball',
+        feed_url: 'file://./data/arizona_womens_basketball.xml',
+        feed_type: 'rss',
+        is_active: true
+    },
+    {
+        school_name: 'Arizona',
+        sport: 'mens-basketball',
+        feed_url: 'file://./data/arizona_mens_basketball.xml',
+        feed_type: 'rss',
+        is_active: true
     },
     {
         school_name: 'Arizona State',
-        feed_url: 'https://thesundevils.com/rss/womens-tennis.xml',
-        feed_type: 'rss'
+        sport: 'womens-tennis',
+        feed_url: 'file://./data/arizona_state_womens_tennis.xml',
+        feed_type: 'rss',
+        is_active: true
+    },
+    {
+        school_name: 'Arizona State',
+        sport: 'mens-tennis',
+        feed_url: 'file://./data/arizona_state_mens_tennis.xml',
+        feed_type: 'rss',
+        is_active: true
+    },
+    {
+        school_name: 'Arizona State',
+        sport: 'womens-basketball',
+        feed_url: 'file://./data/arizona_state_womens_basketball.xml',
+        feed_type: 'rss',
+        is_active: true
+    },
+    {
+        school_name: 'Arizona State',
+        sport: 'mens-basketball',
+        feed_url: 'file://./data/arizona_state_mens_basketball.xml',
+        feed_type: 'rss',
+        is_active: true
     },
     {
         school_name: 'Baylor',
-        feed_url: 'https://baylorbears.com/rss/womens-tennis.xml',
-        feed_type: 'rss'
-    },
-    // Add more schools as their RSS feeds become available
-    // For schools without RSS feeds, we'll use HTML scraping
-    {
-        school_name: 'BYU',
-        feed_url: 'https://byucougars.com/sports/womens-tennis/schedule',
-        feed_type: 'html'
+        sport: 'womens-tennis',
+        feed_url: 'file://./data/baylor_womens_tennis.xml',
+        feed_type: 'rss',
+        is_active: true
     },
     {
-        school_name: 'Cincinnati',
-        feed_url: 'https://gobearcats.com/sports/womens-tennis/schedule',
-        feed_type: 'html'
+        school_name: 'Baylor',
+        sport: 'mens-tennis',
+        feed_url: 'file://./data/baylor_mens_tennis.xml',
+        feed_type: 'rss',
+        is_active: true
+    },
+    {
+        school_name: 'Baylor',
+        sport: 'womens-basketball',
+        feed_url: 'file://./data/baylor_womens_basketball.xml',
+        feed_type: 'rss',
+        is_active: true
+    },
+    {
+        school_name: 'Baylor',
+        sport: 'mens-basketball',
+        feed_url: 'file://./data/baylor_mens_basketball.xml',
+        feed_type: 'rss',
+        is_active: true
     },
     {
         school_name: 'Texas Tech',
-        feed_url: 'https://texastech.com/calendar',
-        feed_type: 'html'
+        sport: 'womens-tennis',
+        feed_url: 'https://texastech.com/sports/womens-tennis/schedule',
+        feed_type: 'html',
+        is_active: true
+    },
+    {
+        school_name: 'Texas Tech',
+        sport: 'mens-tennis',
+        feed_url: 'https://texastech.com/sports/mens-tennis/schedule',
+        feed_type: 'html',
+        is_active: true
+    },
+    {
+        school_name: 'Texas Tech',
+        sport: 'womens-basketball',
+        feed_url: 'https://texastech.com/sports/womens-basketball/schedule',
+        feed_type: 'html',
+        is_active: true
+    },
+    {
+        school_name: 'Texas Tech',
+        sport: 'mens-basketball',
+        feed_url: 'https://texastech.com/sports/mens-basketball/schedule',
+        feed_type: 'html',
+        is_active: true
     }
-    // ... add remaining schools
 ];
 
-async function populateFeeds() {
+async function populateRssFeeds() {
     try {
-        await knex.transaction(async (trx) => {
-            // Clear existing feeds
-            await trx('school_rss_feeds').del();
-            
-            // Insert new feeds
-            await trx('school_rss_feeds').insert(SCHOOL_FEEDS);
-            
-            console.log('Successfully populated RSS feeds');
-        });
+        // Clear existing feeds
+        await knex('school_rss_feeds').del();
+
+        // Insert new feeds
+        await knex('school_rss_feeds').insert(SCHOOL_FEEDS);
+
+        console.log('Successfully populated RSS feeds');
     } catch (error) {
         console.error('Error populating RSS feeds:', error);
         process.exit(1);
     }
 }
 
-// Run the script
-populateFeeds().then(() => process.exit(0)); 
+populateRssFeeds(); 

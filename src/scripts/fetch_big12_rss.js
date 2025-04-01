@@ -2,253 +2,243 @@ const axios = require('axios');
 const { JSDOM } = require('jsdom');
 const Parser = require('rss-parser');
 const knex = require('../config/database');
+const { fetchLocalRssFeed } = require('../utils/rss_fetcher');
 
 const parser = new Parser();
 
-// List of all Big 12 women's tennis teams and their schedule URLs
-const TEAMS = [
-    { name: 'Arizona', url: 'https://arizonawildcats.com/sports/womens-tennis/schedule' },
-    { name: 'Arizona State', url: 'https://thesundevils.com/sports/womens-tennis/schedule' },
-    { name: 'Baylor', url: 'https://baylorbears.com/sports/womens-tennis/schedule' },
-    { name: 'BYU', url: 'https://byucougars.com/sports/womens-tennis/schedule' },
-    { name: 'Cincinnati', url: 'https://gobearcats.com/sports/womens-tennis/schedule' },
-    { name: 'Colorado', url: 'https://cubuffs.com/sports/womens-tennis/schedule' },
-    { name: 'Houston', url: 'https://uhcougars.com/sports/womens-tennis/schedule' },
-    { name: 'Iowa State', url: 'https://cyclones.com/sports/womens-tennis/schedule' },
-    { name: 'Kansas', url: 'https://kuathletics.com/sports/womens-tennis/schedule' },
-    { name: 'Kansas State', url: 'https://www.kstatesports.com/sports/womens-tennis/schedule' },
-    { name: 'Oklahoma State', url: 'https://okstate.com/sports/womens-tennis/schedule' },
-    { name: 'TCU', url: 'https://gofrogs.com/sports/womens-tennis/schedule' },
-    { name: 'Texas Tech', url: 'https://texastech.com/calendar' },
-    { name: 'UCF', url: 'https://ucfknights.com/sports/womens-tennis/schedule' },
-    { name: 'Utah', url: 'https://utahutes.com/sports/womens-tennis/schedule' },
-    { name: 'West Virginia', url: 'https://wvusports.com/sports/womens-tennis/schedule' }
-];
+// Sport-specific match patterns
+const SPORT_PATTERNS = {
+    'womens-tennis': /([A-Za-z\s]+)\s+vs\.?\s+([A-Za-z\s]+)\s+(\d+-\d+)/i,
+    'mens-tennis': /([A-Za-z\s]+)\s+vs\.?\s+([A-Za-z\s]+)\s+(\d+-\d+)/i,
+    'womens-basketball': /([A-Za-z\s]+)\s+vs\.?\s+([A-Za-z\s]+)\s+(\d+-\d+)/i,
+    'mens-basketball': /([A-Za-z\s]+)\s+vs\.?\s+([A-Za-z\s]+)\s+(\d+-\d+)/i
+};
 
-async function fetchRSSFeed(feedUrl) {
+// Sport detection patterns
+const SPORT_DETECTION = {
+    'womens-tennis': /women'?s?\s+tennis/i,
+    'mens-tennis': /men'?s?\s+tennis/i,
+    'womens-basketball': /women'?s?\s+basketball/i,
+    'mens-basketball': /men'?s?\s+basketball/i
+};
+
+async function detectSport(title, description) {
+    for (const [sport, pattern] of Object.entries(SPORT_DETECTION)) {
+        if (pattern.test(title) || pattern.test(description)) {
+            return sport;
+        }
+    }
+    return null;
+}
+
+async function fetchHTMLSchedule(url, sport) {
     try {
-        const feed = await parser.parseURL(feedUrl);
-        return feed.items.map(item => {
-            // Parse the title to extract match information
+        const response = await axios.get(url, {
+            timeout: 10000,
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
+        });
+        
+        const html = response.data;
+        const dom = new JSDOM(html);
+        const document = dom.window.document;
+        
+        const matches = [];
+        
+        // Find the schedule table
+        const scheduleTable = document.querySelector('.sidearm-schedule-games-container, .schedule-table, .schedule');
+        if (!scheduleTable) {
+            console.error(`No schedule table found for ${url}`);
+            return matches;
+        }
+        
+        // Process each row
+        const rows = scheduleTable.querySelectorAll('.sidearm-schedule-game, tr');
+        rows.forEach(row => {
+            try {
+                const dateCell = row.querySelector('.sidearm-schedule-game-opponent-date, td:first-child');
+                const opponentCell = row.querySelector('.sidearm-schedule-game-opponent-name, td:nth-child(2)');
+                const locationCell = row.querySelector('.sidearm-schedule-game-location, td:nth-child(4)');
+                const resultCell = row.querySelector('.sidearm-schedule-game-result, td:nth-child(3)');
+                
+                if (!dateCell || !opponentCell) return;
+                
+                const date = dateCell.textContent.trim();
+                const opponent = opponentCell.textContent.trim();
+                const location = locationCell ? locationCell.textContent.trim() : '';
+                
+                let result = null;
+                let score = null;
+                
+                if (resultCell) {
+                    const resultText = resultCell.textContent.trim();
+                    const resultMatch = resultText.match(/(W|L|T)(?:,?\s*(\d+-\d+))?/i);
+                    if (resultMatch) {
+                        result = resultMatch[1].toUpperCase();
+                        score = resultMatch[2];
+                    }
+                }
+                
+                // Skip rows without valid date or opponent
+                if (!date || !opponent || date.toLowerCase().includes('date') || opponent.toLowerCase().includes('opponent')) {
+                    return;
+                }
+                
+                // Standardize date format
+                const dateMatch = date.match(/(\d{1,2})\/(\d{1,2})(?:\/\d{2,4})?/);
+                if (dateMatch) {
+                    const [, month, day] = dateMatch;
+                    const standardizedDate = `${month.padStart(2, '0')}/${day.padStart(2, '0')}`;
+                    
+                    matches.push({
+                        date: standardizedDate,
+                        opponent,
+                        location,
+                        score,
+                        result,
+                        sport
+                    });
+                }
+            } catch (error) {
+                console.error(`Error processing row:`, error);
+            }
+        });
+        
+        return matches;
+    } catch (error) {
+        console.error(`Error fetching HTML schedule from ${url}:`, error);
+        return [];
+    }
+}
+
+async function fetchRSSFeed(feedUrl, sport) {
+    try {
+        let feed;
+        
+        // Check if the feed URL is a local file path
+        if (feedUrl.startsWith('file://') || feedUrl.startsWith('/')) {
+            feed = await fetchLocalRssFeed(feedUrl.replace('file://', ''));
+        } else {
+            feed = await parser.parseURL(feedUrl);
+        }
+        
+        const matches = [];
+        
+        for (const item of feed.items) {
             const title = item.title;
+            const description = item.description || '';
             const date = item.pubDate ? new Date(item.pubDate) : null;
             
-            // Extract teams and score from title
-            const matchRegex = /([A-Za-z\s]+)\s+vs\.?\s+([A-Za-z\s]+)\s+(\d+-\d+)/i;
-            const match = title.match(matchRegex);
+            // For all-sports feed, detect the sport from the title/description
+            const detectedSport = sport === 'all' ? 
+                await detectSport(title, description) : 
+                sport;
+            
+            if (!detectedSport) continue;
+            
+            const matchPattern = SPORT_PATTERNS[detectedSport] || /([A-Za-z\s]+)\s+vs\.?\s+([A-Za-z\s]+)\s+(\d+-\d+)/i;
+            const match = title.match(matchPattern);
             
             if (match) {
                 const [, team1, team2, score] = match;
-                return {
+                matches.push({
                     date,
                     opponent: team2.trim(),
                     location: 'Home', // Default to home since it's the school's feed
                     score,
                     result: score.split('-')[0] > score.split('-')[1] ? 'W' : 'L',
-                    isConference: TEAMS.some(t => team2.includes(t.name))
-                };
+                    sport: detectedSport
+                });
             }
-            
-            return null;
-        }).filter(Boolean);
+        }
+        
+        return matches;
     } catch (error) {
         console.error('Error fetching RSS feed:', error);
         return [];
     }
 }
 
-async function fetchTeamSchedule(team) {
+async function fetchTeamSchedule(schoolName, sport) {
     try {
-        // First try to get RSS feed URL from database
+        // Get feed URL from database
         const feedRecord = await knex('school_rss_feeds')
-            .where('school_name', team.name)
+            .where('school_name', schoolName)
+            .where('sport', sport)
             .where('is_active', true)
             .first();
 
-        if (feedRecord && feedRecord.feed_type === 'rss') {
-            return await fetchRSSFeed(feedRecord.feed_url);
+        if (!feedRecord) {
+            console.log(`No feed found for ${schoolName} ${sport}`);
+            return [];
         }
 
-        // Fall back to HTML scraping
-        const response = await axios.get(team.url, {
-            timeout: 10000,
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-            }
-        });
-        const html = response.data;
-        const dom = new JSDOM(html);
-        const document = dom.window.document;
-
-        const matches = [];
-
-        if (team.name === 'Texas Tech') {
-            // Handle Texas Tech's calendar format
-            const calendarEvents = document.querySelectorAll('.calendar-event');
-            calendarEvents.forEach(event => {
-                try {
-                    const sportElement = event.querySelector('.sport-name');
-                    if (!sportElement || !sportElement.textContent.includes('Women\'s Tennis')) {
-                        return;
-                    }
-
-                    const dateElement = event.querySelector('.event-date');
-                    const opponentElement = event.querySelector('.event-title');
-                    const locationElement = event.querySelector('.event-location');
-                    const resultElement = event.querySelector('.event-result');
-
-                    if (!dateElement || !opponentElement) {
-                        return;
-                    }
-
-                    const date = dateElement.textContent.trim();
-                    const opponent = opponentElement.textContent.trim();
-                    const location = locationElement ? locationElement.textContent.trim() : '';
-                    
-                    let result = null;
-                    let score = null;
-                    
-                    if (resultElement) {
-                        const resultText = resultElement.textContent.trim();
-                        const resultMatch = resultText.match(/(W|L|T)(?:,?\s*(\d+-\d+))?/i);
-                        if (resultMatch) {
-                            result = resultMatch[1].toUpperCase();
-                            score = resultMatch[2];
-                        }
-                    }
-
-                    // Check if it's a conference match
-                    const isConference = opponent.includes('[Big 12]') || 
-                                      opponent.includes('*') || 
-                                      TEAMS.some(t => opponent.includes(t.name));
-
-                    matches.push({
-                        date,
-                        opponent,
-                        location,
-                        score,
-                        result,
-                        isConference
-                    });
-                } catch (error) {
-                    console.error(`Error processing calendar event for ${team.name}:`, error);
-                }
-            });
-        } else {
-            // Default handling for other teams
-            const scheduleElement = document.querySelector('.sidearm-schedule-games-container, .schedule-table, .schedule');
-            if (!scheduleElement) {
-                console.error(`No schedule found for ${team.name} - DOM structure may have changed`);
-                return [];
-            }
-
-            const rows = scheduleElement.querySelectorAll('.sidearm-schedule-game, tr');
-            rows.forEach(row => {
-                try {
-                    let date, opponent, location, result, score, isConference;
-
-                    const dateCell = row.querySelector('.sidearm-schedule-game-opponent-date, td:first-child');
-                    const opponentCell = row.querySelector('.sidearm-schedule-game-opponent-name, td:nth-child(2)');
-                    const locationCell = row.querySelector('.sidearm-schedule-game-location, td:nth-child(4)');
-                    const resultCell = row.querySelector('.sidearm-schedule-game-result, td:nth-child(3)');
-
-                    date = dateCell ? dateCell.textContent.trim() : '';
-                    opponent = opponentCell ? opponentCell.textContent.trim() : '';
-                    location = locationCell ? locationCell.textContent.trim() : '';
-
-                    if (resultCell) {
-                        const resultText = resultCell.textContent.trim();
-                        const resultMatch = resultText.match(/(W|L|T)(?:,?\s*(\d+-\d+))?/i);
-                        if (resultMatch) {
-                            result = resultMatch[1].toUpperCase();
-                            score = resultMatch[2];
-                        }
-                    }
-
-                    isConference = row.querySelector('.sidearm-schedule-game-conference, .conference') !== null ||
-                                 TEAMS.some(t => opponent.includes(t.name));
-
-                    // Skip rows without valid date or opponent
-                    if (!date || !opponent || date.toLowerCase().includes('date') || opponent.toLowerCase().includes('opponent')) {
-                        return;
-                    }
-
-                    // Standardize date format
-                    const dateMatch = date.match(/(\d{1,2})\/(\d{1,2})(?:\/\d{2,4})?/);
-                    if (dateMatch) {
-                        const [, month, day] = dateMatch;
-                        date = `${month.padStart(2, '0')}/${day.padStart(2, '0')}`;
-                    }
-
-                    matches.push({
-                        date,
-                        opponent,
-                        location,
-                        score,
-                        result,
-                        isConference
-                    });
-                } catch (error) {
-                    console.error(`Error processing row for ${team.name}:`, error);
-                }
-            });
+        if (feedRecord.feed_type === 'rss') {
+            return await fetchRSSFeed(feedRecord.feed_url, sport);
+        } else if (feedRecord.feed_type === 'html') {
+            return await fetchHTMLSchedule(feedRecord.feed_url, sport);
         }
 
-        return matches;
+        console.log(`Unsupported feed type for ${schoolName} ${sport}: ${feedRecord.feed_type}`);
+        return [];
     } catch (error) {
-        console.error(`Error fetching schedule for ${team.name}:`, error);
+        console.error(`Error fetching schedule for ${schoolName} ${sport}:`, error);
         return [];
     }
 }
 
-async function saveMatchesToDatabase(matches, schoolName) {
+async function saveMatchesToDatabase(matches, schoolName, sport) {
     try {
         await knex.transaction(async (trx) => {
             for (const match of matches) {
                 // Insert or update match
-                const [matchRecord] = await trx('tennis_matches')
+                const [matchRecord] = await trx('matches')
                     .insert({
                         home_team: schoolName,
                         away_team: match.opponent,
                         match_date: match.date,
                         location: match.location,
-                        winner: match.result === 'W' ? schoolName : match.opponent
+                        winner: match.result === 'W' ? schoolName : match.opponent,
+                        sport: sport
                     })
-                    .onConflict(['home_team', 'away_team', 'match_date'])
+                    .onConflict(['home_team', 'away_team', 'match_date', 'sport'])
                     .merge()
                     .returning('*');
 
                 // Update standings
-                await trx('tennis_standings')
+                await trx('standings')
                     .insert({
                         team_name: schoolName,
+                        sport: sport,
                         wins: match.result === 'W' ? 1 : 0,
                         losses: match.result === 'L' ? 1 : 0,
                         win_pct: match.result === 'W' ? 1 : 0
                     })
-                    .onConflict('team_name')
+                    .onConflict(['team_name', 'sport'])
                     .merge({
-                        wins: trx.raw('tennis_standings.wins + ?', [match.result === 'W' ? 1 : 0]),
-                        losses: trx.raw('tennis_standings.losses + ?', [match.result === 'L' ? 1 : 0]),
-                        win_pct: trx.raw('CAST(tennis_standings.wins + ? AS FLOAT) / NULLIF(tennis_standings.wins + tennis_standings.losses + 1, 0)', 
+                        wins: trx.raw('standings.wins + ?', [match.result === 'W' ? 1 : 0]),
+                        losses: trx.raw('standings.losses + ?', [match.result === 'L' ? 1 : 0]),
+                        win_pct: trx.raw('CAST(standings.wins + ? AS FLOAT) / NULLIF(standings.wins + standings.losses + 1, 0)', 
                             [match.result === 'W' ? 1 : 0])
                     });
 
                 // Update head-to-head
                 if (match.result) {
-                    await trx('tennis_head_to_head')
+                    await trx('head_to_head')
                         .insert({
                             team1: schoolName,
                             team2: match.opponent,
+                            sport: sport,
                             winner: match.result === 'W' ? schoolName : match.opponent
                         })
-                        .onConflict(['team1', 'team2'])
+                        .onConflict(['team1', 'team2', 'sport'])
                         .merge();
                 }
             }
         });
     } catch (error) {
-        console.error(`Error saving matches to database for ${schoolName}:`, error);
+        console.error(`Error saving matches to database for ${schoolName} ${sport}:`, error);
     }
 }
 
@@ -256,20 +246,25 @@ async function fetchAllSchedules() {
     const allSchedules = {};
     const errors = [];
     
-    for (const team of TEAMS) {
+    // Get all active RSS feeds
+    const feeds = await knex('school_rss_feeds')
+        .where('is_active', true)
+        .select('*');
+    
+    for (const feed of feeds) {
         try {
-            console.log(`Fetching schedule for ${team.name}...`);
-            const matches = await fetchTeamSchedule(team);
+            console.log(`Fetching ${feed.sport} schedule for ${feed.school_name}...`);
+            const matches = await fetchTeamSchedule(feed.school_name, feed.sport);
             if (matches.length === 0) {
-                errors.push(`No matches found for ${team.name}`);
+                errors.push(`No matches found for ${feed.school_name} ${feed.sport}`);
             } else {
-                await saveMatchesToDatabase(matches, team.name);
-                allSchedules[team.name] = matches;
+                await saveMatchesToDatabase(matches, feed.school_name, feed.sport);
+                allSchedules[`${feed.school_name}-${feed.sport}`] = matches;
             }
         } catch (error) {
-            console.error(`Failed to fetch schedule for ${team.name}:`, error.message);
-            errors.push(`Failed to fetch ${team.name}: ${error.message}`);
-            allSchedules[team.name] = [];
+            console.error(`Failed to fetch schedule for ${feed.school_name} ${feed.sport}:`, error.message);
+            errors.push(`Failed to fetch ${feed.school_name} ${feed.sport}: ${error.message}`);
+            allSchedules[`${feed.school_name}-${feed.sport}`] = [];
         }
     }
 

@@ -1,5 +1,7 @@
 const axios = require('axios');
 const xml2js = require('xml2js');
+const fs = require('fs').promises;
+const path = require('path');
 
 async function fetchRssFeed(url) {
     try {
@@ -47,4 +49,35 @@ async function fetchRssFeed(url) {
     }
 }
 
-module.exports = { fetchRssFeed }; 
+async function fetchLocalRssFeed(filePath) {
+    try {
+        // Read the local RSS feed file
+        const xmlContent = await fs.readFile(filePath, 'utf-8');
+        
+        // Parse XML to JSON
+        const parser = new xml2js.Parser({
+            explicitArray: true,
+            mergeAttrs: true,
+            trim: true,
+            explicitRoot: true
+        });
+        
+        const result = await parser.parseStringPromise(xmlContent);
+        
+        // Validate the parsed result
+        if (!result || !result.rss) {
+            throw new Error('Invalid RSS feed format: Missing root RSS element');
+        }
+        
+        if (!result.rss.channel || !Array.isArray(result.rss.channel)) {
+            throw new Error('Invalid RSS feed format: Missing or invalid channel element');
+        }
+        
+        return result;
+    } catch (error) {
+        console.error('Error reading local RSS feed:', error);
+        throw error;
+    }
+}
+
+module.exports = { fetchRssFeed, fetchLocalRssFeed }; 
