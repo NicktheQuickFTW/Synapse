@@ -1,177 +1,184 @@
 const knex = require('../config/database');
 const moment = require('moment');
+const cheerio = require('cheerio');
 require('dotenv').config();
 
-// List of Big 12 teams
-const BIG12_TEAMS = [
-    'Arizona', 'Arizona State', 'Baylor', 'BYU', 'Cincinnati', 'Houston',
-    'Iowa State', 'Kansas', 'Kansas State', 'Oklahoma', 'Oklahoma State',
-    'TCU', 'Texas', 'Texas Tech', 'UCF', 'West Virginia'
-];
+// Mapping of Big 12 teams to track their stats
+const BIG12_TEAMS = {
+    'Arizona': { wins: 0, losses: 0, confWins: 0, confLosses: 0, pointsFor: 0, pointsAgainst: 0, lastResults: [] },
+    'Arizona State': { wins: 0, losses: 0, confWins: 0, confLosses: 0, pointsFor: 0, pointsAgainst: 0, lastResults: [] },
+    'Baylor': { wins: 0, losses: 0, confWins: 0, confLosses: 0, pointsFor: 0, pointsAgainst: 0, lastResults: [] },
+    'Brigham Young': { wins: 0, losses: 0, confWins: 0, confLosses: 0, pointsFor: 0, pointsAgainst: 0, lastResults: [] },
+    'Cincinnati': { wins: 0, losses: 0, confWins: 0, confLosses: 0, pointsFor: 0, pointsAgainst: 0, lastResults: [] },
+    'Colorado': { wins: 0, losses: 0, confWins: 0, confLosses: 0, pointsFor: 0, pointsAgainst: 0, lastResults: [] },
+    'Houston': { wins: 0, losses: 0, confWins: 0, confLosses: 0, pointsFor: 0, pointsAgainst: 0, lastResults: [] },
+    'Iowa State': { wins: 0, losses: 0, confWins: 0, confLosses: 0, pointsFor: 0, pointsAgainst: 0, lastResults: [] },
+    'Kansas': { wins: 0, losses: 0, confWins: 0, confLosses: 0, pointsFor: 0, pointsAgainst: 0, lastResults: [] },
+    'Kansas State': { wins: 0, losses: 0, confWins: 0, confLosses: 0, pointsFor: 0, pointsAgainst: 0, lastResults: [] },
+    'Oklahoma State': { wins: 0, losses: 0, confWins: 0, confLosses: 0, pointsFor: 0, pointsAgainst: 0, lastResults: [] },
+    'TCU': { wins: 0, losses: 0, confWins: 0, confLosses: 0, pointsFor: 0, pointsAgainst: 0, lastResults: [] },
+    'Texas Tech': { wins: 0, losses: 0, confWins: 0, confLosses: 0, pointsFor: 0, pointsAgainst: 0, lastResults: [] },
+    'UCF': { wins: 0, losses: 0, confWins: 0, confLosses: 0, pointsFor: 0, pointsAgainst: 0, lastResults: [] },
+    'Utah': { wins: 0, losses: 0, confWins: 0, confLosses: 0, pointsFor: 0, pointsAgainst: 0, lastResults: [] },
+    'West Virginia': { wins: 0, losses: 0, confWins: 0, confLosses: 0, pointsFor: 0, pointsAgainst: 0, lastResults: [] }
+};
 
-async function fetchESPNBasketballScores() {
+async function fetchConferenceData() {
     try {
-        const url = 'http://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard';
-        console.log('Fetching scores from ESPN API...');
+        const url = 'https://www.sports-reference.com/cbb/conferences/big-12/men/2025-schedule.html';
+        console.log('Fetching Big 12 conference schedule...');
         
         const response = await fetch(url, {
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-                'Accept': 'application/json',
-                'Accept-Language': 'en-US,en;q=0.5',
-                'Connection': 'keep-alive'
+                'Accept': 'text/html',
+                'Accept-Language': 'en-US,en;q=0.5'
             }
         });
 
         if (!response.ok) {
-            throw new Error(`Failed to fetch scores: ${response.status} ${response.statusText}`);
+            throw new Error(`Failed to fetch conference data: ${response.status} ${response.statusText}`);
         }
 
-        const data = await response.json();
-        console.log('Successfully fetched data from ESPN API');
-        console.log('Events found:', data.events?.length || 0);
+        const html = await response.text();
+        const $ = cheerio.load(html);
         
-        const games = [];
-
-        // Process each event from the API response
-        if (data.events) {
-            data.events.forEach(event => {
-                try {
-                    // Get the teams
-                    const homeTeam = event.competitions[0]?.competitors?.find(c => c.homeAway === 'home')?.team;
-                    const awayTeam = event.competitions[0]?.competitors?.find(c => c.homeAway === 'away')?.team;
-
-                    if (!homeTeam || !awayTeam) {
-                        console.log('Skipping event due to missing team data');
-                        return;
-                    }
-
-                    // Get the full school names
-                    const homeSchool = homeTeam.displayName || homeTeam.name;
-                    const awaySchool = awayTeam.displayName || awayTeam.name;
-
-                    console.log(`\nProcessing game: ${homeSchool} vs ${awaySchool}`);
-
-                    // Skip if neither team is in Big 12
-                    if (!BIG12_TEAMS.includes(homeSchool) && !BIG12_TEAMS.includes(awaySchool)) {
-                        console.log('Skipping non-Big 12 game');
-                        return;
-                    }
-
-                    // Get the scores
-                    const homeScore = event.competitions[0]?.competitors?.find(c => c.homeAway === 'home')?.score;
-                    const awayScore = event.competitions[0]?.competitors?.find(c => c.homeAway === 'away')?.score;
-
-                    // Get the game status and date
-                    const status = event.status;
-                    const date = moment(event.date).format('YYYY-MM-DD');
-
-                    // Get conference game status if available
-                    const isConference = event.competitions[0]?.conferenceCompetition || false;
-
-                    // Determine if game is completed
-                    const isCompleted = status.type.state === 'post';
-                    let result = null;
-                    let score = null;
-
-                    if (isCompleted && homeScore !== undefined && awayScore !== undefined) {
-                        score = `${homeScore}-${awayScore}`;
-                        if (parseInt(homeScore) > parseInt(awayScore)) {
-                            result = 'W';
-                        } else if (parseInt(homeScore) < parseInt(awayScore)) {
-                            result = 'L';
-                        } else {
-                            result = 'T';
-                        }
-                    }
-
-                    // For each Big 12 team in the game, create a record
-                    if (BIG12_TEAMS.includes(homeSchool)) {
-                        games.push({
-                            date,
-                            school: homeSchool,
-                            opponent: awaySchool,
-                            location: 'Home',
-                            score,
-                            result,
-                            sport: 'basketball',
-                            is_conference: isConference
-                        });
-                    }
-                    if (BIG12_TEAMS.includes(awaySchool)) {
-                        games.push({
-                            date,
-                            school: awaySchool,
-                            opponent: homeSchool,
-                            location: 'Away',
-                            score: score ? score.split('-').reverse().join('-') : null, // Reverse score for away team
-                            result: result ? (result === 'W' ? 'L' : result === 'L' ? 'W' : 'T') : null, // Reverse result for away team
-                            sport: 'basketball',
-                            is_conference: isConference
-                        });
-                    }
-                } catch (error) {
-                    console.error(`Error processing event:`, error);
+        // Process each game in the schedule
+        $('table tbody tr').each((_, row) => {
+            const $row = $(row);
+            const visitor = $row.find('td:nth-child(2) a').text().trim();
+            const home = $row.find('td:nth-child(4) a').text().trim();
+            const visitorPoints = parseInt($row.find('td:nth-child(3)').text().trim()) || 0;
+            const homePoints = parseInt($row.find('td:nth-child(5)').text().trim()) || 0;
+            
+            if (visitor && home && (visitorPoints > 0 || homePoints > 0)) {
+                // Update visitor stats
+                if (BIG12_TEAMS[visitor]) {
+                    BIG12_TEAMS[visitor].confWins += visitorPoints > homePoints ? 1 : 0;
+                    BIG12_TEAMS[visitor].confLosses += visitorPoints < homePoints ? 1 : 0;
+                    BIG12_TEAMS[visitor].pointsFor += visitorPoints;
+                    BIG12_TEAMS[visitor].pointsAgainst += homePoints;
+                    BIG12_TEAMS[visitor].lastResults.push(visitorPoints > homePoints ? 'W' : 'L');
                 }
-            });
-        }
+                
+                // Update home stats
+                if (BIG12_TEAMS[home]) {
+                    BIG12_TEAMS[home].confWins += homePoints > visitorPoints ? 1 : 0;
+                    BIG12_TEAMS[home].confLosses += homePoints < visitorPoints ? 1 : 0;
+                    BIG12_TEAMS[home].pointsFor += homePoints;
+                    BIG12_TEAMS[home].pointsAgainst += visitorPoints;
+                    BIG12_TEAMS[home].lastResults.push(homePoints > visitorPoints ? 'W' : 'L');
+                }
+            }
+        });
 
-        if (games.length === 0) {
-            console.warn('No games found in ESPN API response');
-        } else {
-            console.log(`\nFound ${games.length} games`);
-            // Log sample of games found
-            console.log('\nSample of games found:');
-            games.slice(0, 3).forEach(game => {
-                console.log(`${game.date}: ${game.school} ${game.location === 'Home' ? 'vs' : '@'} ${game.opponent}${game.score ? ` (${game.score})` : ''}`);
-            });
-        }
+        // Calculate streaks and prepare data for database
+        const teamStats = Object.entries(BIG12_TEAMS).map(([teamName, stats]) => {
+            // Calculate streak
+            let streak = 0;
+            for (let i = stats.lastResults.length - 1; i >= 0; i--) {
+                const result = stats.lastResults[i];
+                if (i === stats.lastResults.length - 1) {
+                    streak = result === 'W' ? 1 : -1;
+                } else if (result === stats.lastResults[i + 1]) {
+                    streak = result === 'W' ? streak + 1 : streak - 1;
+                } else {
+                    break;
+                }
+            }
 
-        return games;
+            return {
+                team: teamName,
+                name: teamName,
+                location: '',
+                stats: {
+                    wins: stats.confWins, // Using conf wins as total wins for now
+                    losses: stats.confLosses,
+                    confWins: stats.confWins,
+                    confLosses: stats.confLosses,
+                    winPercent: stats.confWins / (stats.confWins + stats.confLosses) || 0,
+                    pointsFor: stats.pointsFor,
+                    pointsAgainst: stats.pointsAgainst,
+                    pointDifferential: stats.pointsFor - stats.pointsAgainst,
+                    streak,
+                    rank: null, // We'll need to get this from elsewhere
+                    confRank: null
+                }
+            };
+        });
+
+        return teamStats;
     } catch (error) {
-        console.error('Error fetching scores from ESPN API:', error);
-        return [];
+        console.error('Error fetching conference data:', error);
+        return null;
     }
 }
 
 async function main() {
     try {
-        console.log('\n=== Starting ESPN Basketball Score Fetcher ===\n');
+        console.log('\n=== Starting Big 12 Conference Data Fetcher ===\n');
         
-        const games = await fetchESPNBasketballScores();
-        
-        if (games.length === 0) {
-            console.log('❌ No games found');
-            return;
+        const teamStats = await fetchConferenceData();
+        if (!teamStats) {
+            throw new Error('Failed to fetch conference data');
         }
 
-        console.log(`✅ Successfully found ${games.length} games`);
-        
-        // Log the last 5 games
-        console.log('\nRecent Games:');
-        games.slice(-5).forEach(game => {
-            const result = game.result ? ` (${game.result})` : '';
-            const score = game.score ? ` ${game.score}` : '';
-            const conf = game.is_conference ? ' [CONF]' : '';
-            console.log(`${game.date}: ${game.school} ${game.location === 'Home' ? 'vs' : '@'} ${game.opponent}${result}${score}${conf}`);
+        // Sort teams by conference win percentage
+        teamStats.sort((a, b) => {
+            const aWinPct = a.stats.confWins / (a.stats.confWins + a.stats.confLosses) || 0;
+            const bWinPct = b.stats.confWins / (b.stats.confWins + b.stats.confLosses) || 0;
+            return bWinPct - aWinPct;
         });
 
-        // Save games to database
+        // Assign conference ranks
+        teamStats.forEach((team, index) => {
+            team.stats.confRank = index + 1;
+        });
+
+        // Log summary of what we found
+        console.log('\nBig 12 Conference Standings:');
+        teamStats.forEach(team => {
+            const { stats } = team;
+            console.log(`\n${team.name}:`);
+            console.log(`Conference: ${stats.confWins}-${stats.confLosses} (${(stats.winPercent * 100).toFixed(1)}%)`);
+            console.log(`Points: ${(stats.pointsFor / (stats.confWins + stats.confLosses)).toFixed(1)} for, ${(stats.pointsAgainst / (stats.confWins + stats.confLosses)).toFixed(1)} against per game`);
+            console.log(`Total: ${stats.pointsFor} for, ${stats.pointsAgainst} against (${stats.pointDifferential} differential)`);
+            if (stats.streak) console.log(`Streak: ${stats.streak > 0 ? 'W' + stats.streak : 'L' + Math.abs(stats.streak)}`);
+            console.log(`Conference Rank: ${stats.confRank}`);
+        });
+
+        // Save to database
         try {
-            // Delete existing basketball games
-            await knex('games')
+            // Delete existing team stats
+            await knex('team_stats')
                 .where({ sport: 'basketball' })
                 .del();
 
-            // Insert new games
-            await knex('games').insert(games);
-            console.log(`\n✅ Successfully saved ${games.length} games to database`);
-        } catch (error) {
-            console.error('Error saving games to database:', error);
-        }
+            // Insert new team stats
+            const statsToInsert = teamStats.map(team => ({
+                sport: 'basketball',
+                team: team.team,
+                name: team.name,
+                location: team.location,
+                wins: team.stats.wins,
+                losses: team.stats.losses,
+                conf_wins: team.stats.confWins,
+                conf_losses: team.stats.confLosses,
+                win_percent: team.stats.winPercent,
+                points_for: team.stats.pointsFor,
+                points_against: team.stats.pointsAgainst,
+                point_differential: team.stats.pointDifferential,
+                streak: team.stats.streak,
+                rank: team.stats.rank,
+                conf_rank: team.stats.confRank,
+                updated_at: moment().format('YYYY-MM-DD HH:mm:ss')
+            }));
 
-        console.log('\n=== Fetch Complete ===');
-        console.log(`Total games found: ${games.length}`);
+            await knex('team_stats').insert(statsToInsert);
+            console.log(`\n✅ Successfully saved team statistics to database`);
+        } catch (error) {
+            console.error('Error saving team statistics to database:', error);
+        }
 
     } catch (error) {
         console.error('Fatal error:', error);
