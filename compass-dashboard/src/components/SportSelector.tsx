@@ -1,27 +1,40 @@
-import { Select, Box } from '@chakra-ui/react';
-import { Sport } from '../types';
+import { Select, Box, HStack, Image, Text } from '@chakra-ui/react';
+import { SportSelectorProps } from '../types';
+import { SCHOOLS } from '../config/schools';
 
-interface SportSelectorProps {
-  selectedSport: Sport;
-  onSportChange: (sport: Sport) => void;
-}
+export const SportSelector = ({ selectedSchool, onSchoolChange }: SportSelectorProps) => {
+  const selectedSchoolData = SCHOOLS.find(school => school.id === selectedSchool);
 
-const SPORTS: Sport[] = ['wrestling', 'basketball', 'football', 'baseball', 'volleyball'];
-
-export const SportSelector = ({ selectedSport, onSportChange }: SportSelectorProps) => {
   return (
-    <Box p={4} bg="brand.silverDarker" borderBottom="1px" borderColor="brand.silverDark">
-      <Select
-        value={selectedSport}
-        onChange={(e) => onSportChange(e.target.value as Sport)}
-        maxW="200px"
-      >
-        {SPORTS.map((sport) => (
-          <option key={sport} value={sport}>
-            {sport.charAt(0).toUpperCase() + sport.slice(1)}
-          </option>
-        ))}
-      </Select>
+    <Box maxW="400px">
+      <HStack spacing={4} align="center">
+        {selectedSchoolData && (
+          <Image
+            src={selectedSchoolData.logoUrl}
+            alt={`${selectedSchoolData.name} logo`}
+            boxSize="40px"
+            objectFit="contain"
+            transition="all 0.2s"
+          />
+        )}
+        <Select
+          value={selectedSchool}
+          onChange={(e) => onSchoolChange(e.target.value)}
+          bg="brand.black"
+          color="brand.silver"
+          borderColor="brand.silverDark"
+          _hover={{
+            borderColor: 'brand.silver',
+          }}
+          icon={<></>}
+        >
+          {SCHOOLS.map(school => (
+            <option key={school.id} value={school.id}>
+              {school.name} Wrestling
+            </option>
+          ))}
+        </Select>
+      </HStack>
     </Box>
   );
 }; 

@@ -31,6 +31,8 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
+    "@chakra-ui/theme-utils": "^2.0.21",
+    "@chakra-ui/utils": "^2.2.2",
     "@mendable/firecrawl": "^1.20.1",
     "@notionhq/client": "^2.3.0",
     "axios": "^1.8.4",
