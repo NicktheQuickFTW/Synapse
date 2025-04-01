@@ -1,5 +1,9 @@
 const axios = require('axios');
 const { JSDOM } = require('jsdom');
+const Parser = require('rss-parser');
+const knex = require('../config/database');
+
+const parser = new Parser();
 
 // List of all Big 12 women's tennis teams and their schedule URLs
 const TEAMS = [
@@ -15,16 +19,59 @@ const TEAMS = [
     { name: 'Kansas State', url: 'https://www.kstatesports.com/sports/womens-tennis/schedule' },
     { name: 'Oklahoma State', url: 'https://okstate.com/sports/womens-tennis/schedule' },
     { name: 'TCU', url: 'https://gofrogs.com/sports/womens-tennis/schedule' },
-    { name: 'Texas Tech', url: 'https://texastech.com/sports/womens-tennis/schedule' },
+    { name: 'Texas Tech', url: 'https://texastech.com/calendar' },
     { name: 'UCF', url: 'https://ucfknights.com/sports/womens-tennis/schedule' },
     { name: 'Utah', url: 'https://utahutes.com/sports/womens-tennis/schedule' },
     { name: 'West Virginia', url: 'https://wvusports.com/sports/womens-tennis/schedule' }
 ];
 
+async function fetchRSSFeed(feedUrl) {
+    try {
+        const feed = await parser.parseURL(feedUrl);
+        return feed.items.map(item => {
+            // Parse the title to extract match information
+            const title = item.title;
+            const date = item.pubDate ? new Date(item.pubDate) : null;
+            
+            // Extract teams and score from title
+            const matchRegex = /([A-Za-z\s]+)\s+vs\.?\s+([A-Za-z\s]+)\s+(\d+-\d+)/i;
+            const match = title.match(matchRegex);
+            
+            if (match) {
+                const [, team1, team2, score] = match;
+                return {
+                    date,
+                    opponent: team2.trim(),
+                    location: 'Home', // Default to home since it's the school's feed
+                    score,
+                    result: score.split('-')[0] > score.split('-')[1] ? 'W' : 'L',
+                    isConference: TEAMS.some(t => team2.includes(t.name))
+                };
+            }
+            
+            return null;
+        }).filter(Boolean);
+    } catch (error) {
+        console.error('Error fetching RSS feed:', error);
+        return [];
+    }
+}
+
 async function fetchTeamSchedule(team) {
     try {
+        // First try to get RSS feed URL from database
+        const feedRecord = await knex('school_rss_feeds')
+            .where('school_name', team.name)
+            .where('is_active', true)
+            .first();
+
+        if (feedRecord && feedRecord.feed_type === 'rss') {
+            return await fetchRSSFeed(feedRecord.feed_url);
+        }
+
+        // Fall back to HTML scraping
         const response = await axios.get(team.url, {
-            timeout: 10000, // 10 second timeout
+            timeout: 10000,
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
             }
@@ -33,48 +80,73 @@ async function fetchTeamSchedule(team) {
         const dom = new JSDOM(html);
         const document = dom.window.document;
 
-        // Find the schedule table or list
-        const scheduleElement = document.querySelector('.sidearm-schedule-games-container, .schedule-table, .schedule');
-        if (!scheduleElement) {
-            console.error(`No schedule found for ${team.name} - DOM structure may have changed`);
-            return [];
-        }
-
         const matches = [];
-        const rows = scheduleElement.querySelectorAll('.sidearm-schedule-game, tr');
 
-        rows.forEach(row => {
-            try {
-                let date, opponent, location, result, score, isConference;
-
-                if (team.name === 'Texas Tech') {
-                    // Special handling for Texas Tech's format
-                    const dateCell = row.querySelector('td:first-child');
-                    const opponentCell = row.querySelector('td:nth-child(2)');
-                    const resultCell = row.querySelector('td:nth-child(3)');
-                    const locationCell = row.querySelector('td:nth-child(4)');
-
-                    if (dateCell && opponentCell) {
-                        date = dateCell.textContent.trim();
-                        opponent = opponentCell.textContent.trim();
-                        location = locationCell ? locationCell.textContent.trim() : '';
-                        
-                        if (resultCell) {
-                            const resultText = resultCell.textContent.trim();
-                            const resultMatch = resultText.match(/(W|L|T)(?:,?\s*(\d+-\d+))?/i);
-                            if (resultMatch) {
-                                result = resultMatch[1].toUpperCase();
-                                score = resultMatch[2];
-                            }
-                        }
-                        
-                        // Check if it's a conference match
-                        isConference = opponent.includes('[Big 12]') || 
-                                     opponent.includes('*') || 
-                                     TEAMS.some(t => opponent.includes(t.name));
+        if (team.name === 'Texas Tech') {
+            // Handle Texas Tech's calendar format
+            const calendarEvents = document.querySelectorAll('.calendar-event');
+            calendarEvents.forEach(event => {
+                try {
+                    const sportElement = event.querySelector('.sport-name');
+                    if (!sportElement || !sportElement.textContent.includes('Women\'s Tennis')) {
+                        return;
                     }
-                } else {
-                    // Default handling for other teams
+
+                    const dateElement = event.querySelector('.event-date');
+                    const opponentElement = event.querySelector('.event-title');
+                    const locationElement = event.querySelector('.event-location');
+                    const resultElement = event.querySelector('.event-result');
+
+                    if (!dateElement || !opponentElement) {
+                        return;
+                    }
+
+                    const date = dateElement.textContent.trim();
+                    const opponent = opponentElement.textContent.trim();
+                    const location = locationElement ? locationElement.textContent.trim() : '';
+                    
+                    let result = null;
+                    let score = null;
+                    
+                    if (resultElement) {
+                        const resultText = resultElement.textContent.trim();
+                        const resultMatch = resultText.match(/(W|L|T)(?:,?\s*(\d+-\d+))?/i);
+                        if (resultMatch) {
+                            result = resultMatch[1].toUpperCase();
+                            score = resultMatch[2];
+                        }
+                    }
+
+                    // Check if it's a conference match
+                    const isConference = opponent.includes('[Big 12]') || 
+                                      opponent.includes('*') || 
+                                      TEAMS.some(t => opponent.includes(t.name));
+
+                    matches.push({
+                        date,
+                        opponent,
+                        location,
+                        score,
+                        result,
+                        isConference
+                    });
+                } catch (error) {
+                    console.error(`Error processing calendar event for ${team.name}:`, error);
+                }
+            });
+        } else {
+            // Default handling for other teams
+            const scheduleElement = document.querySelector('.sidearm-schedule-games-container, .schedule-table, .schedule');
+            if (!scheduleElement) {
+                console.error(`No schedule found for ${team.name} - DOM structure may have changed`);
+                return [];
+            }
+
+            const rows = scheduleElement.querySelectorAll('.sidearm-schedule-game, tr');
+            rows.forEach(row => {
+                try {
+                    let date, opponent, location, result, score, isConference;
+
                     const dateCell = row.querySelector('.sidearm-schedule-game-opponent-date, td:first-child');
                     const opponentCell = row.querySelector('.sidearm-schedule-game-opponent-name, td:nth-child(2)');
                     const locationCell = row.querySelector('.sidearm-schedule-game-location, td:nth-child(4)');
@@ -95,37 +167,88 @@ async function fetchTeamSchedule(team) {
 
                     isConference = row.querySelector('.sidearm-schedule-game-conference, .conference') !== null ||
                                  TEAMS.some(t => opponent.includes(t.name));
-                }
 
-                // Skip rows without valid date or opponent
-                if (!date || !opponent || date.toLowerCase().includes('date') || opponent.toLowerCase().includes('opponent')) {
-                    return;
-                }
+                    // Skip rows without valid date or opponent
+                    if (!date || !opponent || date.toLowerCase().includes('date') || opponent.toLowerCase().includes('opponent')) {
+                        return;
+                    }
 
-                // Standardize date format
-                const dateMatch = date.match(/(\d{1,2})\/(\d{1,2})(?:\/\d{2,4})?/);
-                if (dateMatch) {
-                    const [, month, day] = dateMatch;
-                    date = `${month.padStart(2, '0')}/${day.padStart(2, '0')}`;
-                }
+                    // Standardize date format
+                    const dateMatch = date.match(/(\d{1,2})\/(\d{1,2})(?:\/\d{2,4})?/);
+                    if (dateMatch) {
+                        const [, month, day] = dateMatch;
+                        date = `${month.padStart(2, '0')}/${day.padStart(2, '0')}`;
+                    }
 
-                matches.push({
-                    date,
-                    opponent,
-                    location,
-                    score,
-                    result,
-                    isConference
-                });
-            } catch (error) {
-                console.error(`Error processing row for ${team.name}:`, error);
-            }
-        });
+                    matches.push({
+                        date,
+                        opponent,
+                        location,
+                        score,
+                        result,
+                        isConference
+                    });
+                } catch (error) {
+                    console.error(`Error processing row for ${team.name}:`, error);
+                }
+            });
+        }
 
         return matches;
     } catch (error) {
         console.error(`Error fetching schedule for ${team.name}:`, error);
         return [];
+    }
+}
+
+async function saveMatchesToDatabase(matches, schoolName) {
+    try {
+        await knex.transaction(async (trx) => {
+            for (const match of matches) {
+                // Insert or update match
+                const [matchRecord] = await trx('tennis_matches')
+                    .insert({
+                        home_team: schoolName,
+                        away_team: match.opponent,
+                        match_date: match.date,
+                        location: match.location,
+                        winner: match.result === 'W' ? schoolName : match.opponent
+                    })
+                    .onConflict(['home_team', 'away_team', 'match_date'])
+                    .merge()
+                    .returning('*');
+
+                // Update standings
+                await trx('tennis_standings')
+                    .insert({
+                        team_name: schoolName,
+                        wins: match.result === 'W' ? 1 : 0,
+                        losses: match.result === 'L' ? 1 : 0,
+                        win_pct: match.result === 'W' ? 1 : 0
+                    })
+                    .onConflict('team_name')
+                    .merge({
+                        wins: trx.raw('tennis_standings.wins + ?', [match.result === 'W' ? 1 : 0]),
+                        losses: trx.raw('tennis_standings.losses + ?', [match.result === 'L' ? 1 : 0]),
+                        win_pct: trx.raw('CAST(tennis_standings.wins + ? AS FLOAT) / NULLIF(tennis_standings.wins + tennis_standings.losses + 1, 0)', 
+                            [match.result === 'W' ? 1 : 0])
+                    });
+
+                // Update head-to-head
+                if (match.result) {
+                    await trx('tennis_head_to_head')
+                        .insert({
+                            team1: schoolName,
+                            team2: match.opponent,
+                            winner: match.result === 'W' ? schoolName : match.opponent
+                        })
+                        .onConflict(['team1', 'team2'])
+                        .merge();
+                }
+            }
+        });
+    } catch (error) {
+        console.error(`Error saving matches to database for ${schoolName}:`, error);
     }
 }
 
@@ -139,8 +262,10 @@ async function fetchAllSchedules() {
             const matches = await fetchTeamSchedule(team);
             if (matches.length === 0) {
                 errors.push(`No matches found for ${team.name}`);
+            } else {
+                await saveMatchesToDatabase(matches, team.name);
+                allSchedules[team.name] = matches;
             }
-            allSchedules[team.name] = matches;
         } catch (error) {
             console.error(`Failed to fetch schedule for ${team.name}:`, error.message);
             errors.push(`Failed to fetch ${team.name}: ${error.message}`);
@@ -226,18 +351,4 @@ async function main() {
         console.log(`Overall: ${stats.overall.wins}-${stats.overall.losses}-${stats.overall.ties} (${(stats.overall.percentage * 100).toFixed(1)}%)`);
         console.log(`Conference: ${stats.conference.wins}-${stats.conference.losses} (${(stats.conference.percentage * 100).toFixed(1)}%)`);
         console.log(`Home: ${stats.location.home} wins`);
-        console.log(`Away: ${stats.location.away} wins`);
-        console.log(`Neutral: ${stats.location.neutral} wins`);
-        
-        console.log('\nMatches:');
-        matches.forEach(match => {
-            const result = match.result ? ` (${match.result}${match.score ? `, ${match.score}` : ''})` : '';
-            const conference = match.isConference ? ' [Big 12]' : '';
-            console.log(`${match.date}: ${match.opponent}${result}${conference}`);
-            if (match.location) console.log(`Location: ${match.location}`);
-            console.log('---');
-        });
-    }
-}
-
-main().catch(console.error); 
+        console.log(`

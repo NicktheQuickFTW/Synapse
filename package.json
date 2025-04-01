@@ -19,7 +19,10 @@
     "update-mbb-agent": "node -r dotenv/config scripts/update-agent-name.js",
     "db:migrate": "node -r dotenv/config src/db/migrate.js",
     "db:seed": "node -r dotenv/config src/db/init_tennis_data.js",
-    "db:setup": "npm run db:migrate && npm run db:seed"
+    "db:setup": "npm run db:migrate && npm run db:seed",
+    "populate-feeds": "node src/scripts/populate_rss_feeds.js",
+    "fetch-schedules": "node src/scripts/fetch_big12_rss.js",
+    "update-schedules": "npm run populate-feeds && npm run fetch-schedules"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
@@ -51,7 +54,8 @@
     "uuid": "^11.1.0",
     "winston": "^3.17.0",
     "xml2js": "^0.6.2",
-    "zod": "^3.24.2"
+    "zod": "^3.24.2",
+    "rss-parser": "^3.13.0"
   },
   "devDependencies": {
     "browser-sync": "^3.0.3",
