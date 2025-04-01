@@ -44,7 +44,21 @@ app.get('/api/tennis/standings', async (req, res) => {
             FROM wten_standings 
             ORDER BY 
                 conf_win_percent DESC,
-                ita_rank ASC NULLS LAST
+                -- Custom sorting logic for the 6-3 tie (conf_win_percent = 0.667)
+                CASE 
+                    WHEN conf_win_percent = 0.667 THEN
+                        CASE team
+                            WHEN 'Arizona' THEN 1
+                            WHEN 'Arizona State' THEN 2
+                            WHEN 'TCU' THEN 3
+                            WHEN 'Baylor' THEN 4
+                            WHEN 'BYU' THEN 5
+                            ELSE 6 -- Should not happen in this group
+                        END
+                    ELSE 0 -- Assign 0 to all other groups for correct relative sorting
+                END ASC,
+                -- Fallback for other ties (like 8-1) using ITA rank
+                ita_rank ASC NULLS LAST 
         `;
         
         const result = await pool.query(query);

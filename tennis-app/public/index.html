@@ -446,35 +446,53 @@
                 // Create table body
                 const tbody = document.createElement('tbody');
                 let lastTeamRecord = null;
-                let tiedTeams = [];
+                let tiedGroupStartIndex = -1;
 
                 data.standings.forEach((team, index) => {
-                    // Check if this team has the same conference record as the previous team
                     const currentRecord = team.confRecord;
-                    
-                    if (currentRecord === lastTeamRecord) {
-                        // Add this team to the tied teams group
-                        tiedTeams.push({ team, index });
-                    } else {
-                        // If we had tied teams, process them
-                        if (tiedTeams.length > 1) {
-                            processTiedTeams(tbody, tiedTeams);
+                    let isTiedWithPrevious = false;
+
+                    if (currentRecord === lastTeamRecord && lastTeamRecord !== null) {
+                        isTiedWithPrevious = true;
+                        if (tiedGroupStartIndex === -1) {
+                            // Mark the start of this tied group (the previous team's index)
+                            tiedGroupStartIndex = index - 1;
                         }
-                        // Start a new potential tie group
-                        tiedTeams = [{ team, index }];
+                    } else {
+                        // If the record changes, and we were in a tied group, process it
+                        if (tiedGroupStartIndex !== -1) {
+                            const groupSize = index - tiedGroupStartIndex;
+                            if (groupSize > 1) {
+                                const tiedTeamsData = data.standings.slice(tiedGroupStartIndex, index)
+                                    .map((t, i) => ({ team: t, index: tiedGroupStartIndex + i }));
+                                processTiedTeams(tbody, tiedTeamsData);
+                            }
+                        }
+                        tiedGroupStartIndex = -1; // Reset group tracking
                     }
                     
                     const row = document.createElement('tr');
                     const teamNameWithRank = team.ita_rank ? `#${team.ita_rank} ${team.team}` : team.team;
                     
-                    // Add classes if this is part of a tied group
-                    if (currentRecord === lastTeamRecord) {
-                        row.classList.add('tied-team-row', 'has-tiebreaker');
+                    // Add class if this row is tied with the *next* row (which requires looking ahead slightly or handling in processTiedTeams)
+                    // For simplicity, we add arrow based on tie with *previous* row, processTiedTeams inserts explanation below the higher ranked team in the pair
+                    if (isTiedWithPrevious) {
+                         // Add class to the PREVIOUS row to indicate it has a tiebreaker below it
+                        const previousRow = tbody.children[tbody.children.length - 1];
+                        if(previousRow && !previousRow.classList.contains('has-tiebreaker')) {
+                             previousRow.classList.add('has-tiebreaker');
+                             // Add arrow to the previous row's team name cell
+                             const teamCell = previousRow.cells[1]; 
+                             const arrowSpan = document.createElement('span');
+                             arrowSpan.className = 'tiebreaker-arrow';
+                             arrowSpan.innerHTML = '▼';
+                             teamCell.appendChild(arrowSpan);
+                        }
                     }
                     
                     row.innerHTML = `
                         <td>${index + 1}</td>
-                        <td><a href="/team/${team.team}" class="team-link">${teamNameWithRank}</a>${currentRecord === lastTeamRecord ? '<span class="tiebreaker-arrow">▼</span>' : ''}</td>
+                        <td><a href="/team/${team.team}" class="team-link">${teamNameWithRank}</a></td>
                         <td>${team.wins}-${team.losses}</td>
                         <td>${team.confRecord}</td>
                         <td>${(team.win_percent * 100).toFixed(1)}%</td>
@@ -484,9 +502,14 @@
                     lastTeamRecord = currentRecord;
                 });
 
-                // Process any remaining tied teams
-                if (tiedTeams.length > 1) {
-                    processTiedTeams(tbody, tiedTeams);
+                // Process any remaining tied group at the end of the list
+                if (tiedGroupStartIndex !== -1) {
+                    const groupSize = data.standings.length - tiedGroupStartIndex;
+                     if (groupSize > 1) {
+                          const tiedTeamsData = data.standings.slice(tiedGroupStartIndex)
+                              .map((t, i) => ({ team: t, index: tiedGroupStartIndex + i }));
+                          processTiedTeams(tbody, tiedTeamsData);
+                     }
                 }
 
                 table.appendChild(tbody);
@@ -530,12 +553,11 @@
 
             // Iterate through the pairs of tied teams (as ordered by the server)
             for (let i = 0; i < tiedTeams.length - 1; i++) {
-                const team1 = tiedTeams[i].team;
-                const team2 = tiedTeams[i + 1].team;
+                const team1 = tiedTeams[i].team; // Higher ranked team in pair
+                const team2 = tiedTeams[i + 1].team; // Lower ranked team in pair
                 let explanation = '';
 
                 // --- Specific Tiebreaker Explanations --- 
-
                 // Two-way tie at 8-1 (Tech vs OSU)
                 if (confRecord === '8-1' && team1.team === 'Texas Tech' && team2.team === 'Oklahoma State') {
                     explanation = 'Texas Tech wins tiebreaker over Oklahoma State due to head-to-head victory.';
@@ -562,7 +584,7 @@
                 }
                 // --- Default Tiebreaker (ITA Rank if not covered above) ---
                 else {
-                    if (team1.ita_rank && team2.ita_rank) {
+                     if (team1.ita_rank && team2.ita_rank) {
                         explanation = `${team1.team} wins tiebreaker over ${team2.team} due to higher ITA ranking (#${team1.ita_rank} vs #${team2.ita_rank}).`;
                     } else if (team1.ita_rank) {
                         explanation = `${team1.team} wins tiebreaker over ${team2.team} due to having an ITA ranking (#${team1.ita_rank}).`;
@@ -611,7 +633,11 @@
         // Add click handlers for tiebreaker ARROWS
         function addArrowClickHandlers() {
              document.querySelectorAll('.tiebreaker-arrow').forEach(arrow => {
-                arrow.addEventListener('click', function(e) {
+                // Remove any existing listener to prevent duplicates on refresh
+                const newArrow = arrow.cloneNode(true);
+                arrow.parentNode.replaceChild(newArrow, arrow);
+                
+                newArrow.addEventListener('click', function(e) {
                     e.stopPropagation(); // Prevent triggering row click if any
                     const parentRow = this.closest('tr');
                     const nextRow = parentRow ? parentRow.nextElementSibling : null;
