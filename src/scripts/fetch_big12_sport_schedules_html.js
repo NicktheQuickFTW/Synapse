@@ -66,7 +66,7 @@ async function fetchHTMLSchedule(url, sport) {
         const html = await response.text();
         
         const $ = cheerio.load(html);
-        const matches = [];
+        const games = [];
 
         // Try each selector pattern
         for (const [pattern, selectors] of Object.entries(TABLE_SELECTORS)) {
@@ -111,7 +111,7 @@ async function fetchHTMLSchedule(url, sport) {
                                                conferenceText.toLowerCase().includes('big 12') ||
                                                conferenceText.toLowerCase().includes('conference');
 
-                        matches.push({
+                        games.push({
                             date,
                             opponent: opponentText,
                             location: locationText,
@@ -125,22 +125,22 @@ async function fetchHTMLSchedule(url, sport) {
                     }
                 });
 
-                // If we found matches with this pattern, break the loop
-                if (matches.length > 0) {
+                // If we found games with this pattern, break the loop
+                if (games.length > 0) {
                     break;
                 }
             }
         }
 
-        if (matches.length === 0) {
-            console.warn(`No matches found for ${url}`);
+        if (games.length === 0) {
+            console.warn(`No games found for ${url}`);
         } else {
-            console.log(`Found ${matches.length} matches`);
-            const conferenceGames = matches.filter(m => m.is_conference).length;
-            console.log(`Conference games: ${conferenceGames}, Non-conference games: ${matches.length - conferenceGames}`);
+            console.log(`Found ${games.length} games`);
+            const conferenceGames = games.filter(g => g.is_conference).length;
+            console.log(`Conference games: ${conferenceGames}, Non-conference games: ${games.length - conferenceGames}`);
         }
 
-        return matches;
+        return games;
     } catch (error) {
         console.error(`Error fetching HTML schedule from ${url}:`, error);
         return [];
@@ -182,7 +182,7 @@ function parseDate(dateText) {
 
 async function fetchTeamSchedule(team) {
     try {
-        const feed = await knex('school_rss_feeds')
+        const feed = await knex('school_html_schedules')
             .where('school_name', team)
             .first();
 
@@ -191,21 +191,21 @@ async function fetchTeamSchedule(team) {
             return [];
         }
 
-        let matches = [];
+        let games = [];
         if (feed.feed_type === 'html') {
-            matches = await fetchHTMLSchedule(feed.feed_url, feed.sport);
+            games = await fetchHTMLSchedule(feed.feed_url, feed.sport);
         }
 
-        // Filter matches to only include Big 12 teams
+        // Filter games to only include Big 12 teams
         const big12Teams = [
             'Arizona', 'Arizona State', 'Baylor', 'BYU', 'Cincinnati', 'Houston',
             'Iowa State', 'Kansas', 'Kansas State', 'Oklahoma', 'Oklahoma State',
             'TCU', 'Texas', 'Texas Tech', 'UCF', 'West Virginia'
         ];
 
-        return matches.filter(match => 
-            big12Teams.includes(match.opponent) && 
-            match.opponent !== team
+        return games.filter(game => 
+            big12Teams.includes(game.opponent) && 
+            game.opponent !== team
         );
     } catch (error) {
         console.error(`Error fetching schedule for ${team}:`, error);
@@ -218,13 +218,13 @@ async function main() {
         console.log('\n=== Starting Big 12 Schedule Scraper ===\n');
         
         // Get all active feeds
-        const feeds = await knex('school_rss_feeds')
+        const feeds = await knex('school_html_schedules')
             .where('is_active', true)
             .select('*');
 
         console.log(`Found ${feeds.length} feeds to process`);
         const errors = [];
-        const allMatches = [];
+        const allGames = [];
 
         // Process each feed
         for (const feed of feeds) {
@@ -232,56 +232,54 @@ async function main() {
                 console.log(`\nProcessing ${feed.sport} schedule for ${feed.school_name}...`);
                 console.log(`URL: ${feed.feed_url}`);
                 
-                const matches = await fetchTeamSchedule(feed.school_name);
+                const games = await fetchTeamSchedule(feed.school_name);
                 
-                if (matches.length === 0) {
-                    errors.push(`No matches found for ${feed.school_name} ${feed.sport}`);
-                    console.log('❌ No matches found');
+                if (games.length === 0) {
+                    errors.push(`No games found for ${feed.school_name} ${feed.sport}`);
+                    console.log('❌ No games found');
                     continue;
                 }
 
-                // Add school name to each match
-                matches.forEach(match => {
-                    match.school = feed.school_name;
+                // Add school name to each game
+                games.forEach(game => {
+                    game.school = feed.school_name;
                 });
 
-                allMatches.push(...matches);
-                console.log(`✅ Successfully found ${matches.length} matches`);
+                allGames.push(...games);
+                console.log(`✅ Successfully found ${games.length} games`);
                 
-                // Log match details
-                console.log('\nMatch Details:');
-                matches.forEach(match => {
-                    console.log(`- ${match.date}: ${match.school} vs ${match.opponent} (${match.is_conference ? 'Conference' : 'Non-Conference'})`);
+                // Log the last 5 games
+                console.log('\nRecent Games:');
+                games.slice(-5).forEach(game => {
+                    const result = game.result ? ` (${game.result})` : '';
+                    const score = game.score ? ` ${game.score}` : '';
+                    const conf = game.is_conference ? ' [CONF]' : '';
+                    console.log(`${game.date}: vs ${game.opponent}${result}${score}${conf}`);
                 });
-                
             } catch (error) {
-                errors.push(`Error processing ${feed.school_name} ${feed.sport}: ${error.message}`);
-                console.error(`❌ Error: ${error.message}`);
+                console.error(`Error processing ${feed.school_name}:`, error);
+                errors.push(`Error processing ${feed.school_name}: ${error.message}`);
             }
         }
 
-        // Update matches in database
-        if (allMatches.length > 0) {
+        // Update games in database
+        if (allGames.length > 0) {
             console.log('\nUpdating database...');
-            await knex('matches').del();
-            await knex('matches').insert(allMatches);
-            console.log(`✅ Successfully updated ${allMatches.length} matches in database`);
+            await knex('games').del();
+            await knex('games').insert(allGames);
+            console.log(`✅ Successfully updated ${allGames.length} games in database`);
         }
 
         // Log any errors
         if (errors.length > 0) {
-            console.error('\n❌ Errors encountered:');
-            errors.forEach(error => console.error(`- ${error}`));
+            console.log('\nErrors encountered:');
+            errors.forEach(error => console.log(`❌ ${error}`));
         }
 
         console.log('\n=== Big 12 Schedule Scraper Complete ===\n');
-
     } catch (error) {
-        console.error('❌ Error in main process:', error);
+        console.error('Fatal error:', error);
         process.exit(1);
-    } finally {
-        await knex.destroy();
-        process.exit(0);
     }
 }
 
