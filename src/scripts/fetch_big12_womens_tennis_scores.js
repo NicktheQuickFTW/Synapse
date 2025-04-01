@@ -116,40 +116,36 @@ async function main() {
     for (const [team, stat] of Object.entries(stats)) {
       try {
         const total = stat.wins + stat.losses;
+        const confTotal = stat.confWins + stat.confLosses;
         
-        // First, try to update existing record
-        const updated = await knex('tennis_stats')
-          .where({ team, sport: 'womens-tennis' })
-          .update({
+        const dataToSave = {
             wins: stat.wins,
             losses: stat.losses,
             conf_wins: stat.confWins,
             conf_losses: stat.confLosses,
-            win_percent: total > 0 ? stat.wins / total : 0,
+            win_percent: total > 0 ? (stat.wins / total) : 0,
+            conf_win_percent: confTotal > 0 ? (stat.confWins / confTotal) : 0,
             schedule: JSON.stringify(teamData[team]),
-            name: team,
-            location: 'Big 12',
-            current_streak: stat.currentStreak.toString()
-          });
+            streak: stat.currentStreak
+        };
+        
+        // First, try to update existing record
+        const updated = await knex('tennis_stats')
+          .where({ team: team, sport: 'womens-tennis' })
+          .update(dataToSave);
 
         // If no record was updated, insert a new one
         if (updated === 0) {
           await knex('tennis_stats').insert({
-            team,
+            team: team,
             sport: 'womens-tennis',
-            wins: stat.wins,
-            losses: stat.losses,
-            conf_wins: stat.confWins,
-            conf_losses: stat.confLosses,
-            win_percent: total > 0 ? stat.wins / total : 0,
-            schedule: JSON.stringify(teamData[team]),
-            name: team,
-            location: 'Big 12',
-            current_streak: stat.currentStreak.toString()
+            ...dataToSave
           });
+          console.log(`Inserted ${team} into database`);
+        } else {
+            console.log(`Updated ${team} in database`);
         }
         
-        console.log(`Saved ${team} to database`);
       } catch (error) {
         console.error(`Error saving ${team} to database:`, error);
       }

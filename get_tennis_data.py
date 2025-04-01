@@ -142,22 +142,48 @@ def get_data(data_type, gender):
         elif data_type == 'standings':
             query = """
             SELECT 
-                team, conf_rank, conf_wins, conf_losses, conf_win_percent
+                team, 
+                wins, 
+                losses, 
+                conf_wins, 
+                conf_losses, 
+                win_percent, -- Overall win percent
+                conf_win_percent,
+                ita_rank, -- Add ita_rank if it exists in your table, otherwise default below
+                streak -- Use 'streak' column based on schema
             FROM 
                 tennis_stats 
             WHERE 
                 sport = %s AND team IS NOT NULL AND team != ''
             ORDER BY 
-                conf_rank ASC, conf_win_percent DESC, conf_wins DESC
+                conf_rank ASC, conf_win_percent DESC, conf_wins DESC -- Keep existing sort
             """
             cursor.execute(query, (sport_filter,))
+            # Fetch all necessary columns
             standings_raw = [dict(row) for row in cursor.fetchall()]
             print_debug(f"Found {len(standings_raw)} raw standings records with sport='{sport_filter}'.")
             cursor.close()
-            standings = [{
-                "team": row["team"],
-                "points": int(row["conf_win_percent"] * 100) 
-            } for row in standings_raw if row.get('team')]
+            
+            # Prepare data in the format expected by JS tiebreaker
+            standings = []
+            for row in standings_raw:
+                # Ensure numeric types and handle potential NULLs
+                team_data = {
+                    "team": row.get("team"),
+                    "wins": int(row.get("wins", 0) or 0),
+                    "losses": int(row.get("losses", 0) or 0),
+                    "conf_wins": int(row.get("conf_wins", 0) or 0),
+                    "conf_losses": int(row.get("conf_losses", 0) or 0),
+                    "win_percent": float(row.get("win_percent", 0.0) or 0.0),
+                    "conf_win_percent": float(row.get("conf_win_percent", 0.0) or 0.0),
+                    "ita_rank": int(row.get("ita_rank") or 999), # Default if ita_rank column doesn't exist or is NULL
+                    "current_streak": str(row.get("streak", 0) or 0) # Map 'streak' to expected 'current_streak'
+                 }
+                # Only add if team name is valid
+                if team_data["team"]:
+                    standings.append(team_data)
+                    
+            # Return the detailed standings list
             return {"standings": standings}
 
         else:

@@ -6,119 +6,106 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>XII-OS Tennis Tiebreaker</title>
+    <title>Big 12 Women's Tennis Standings</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
-    <style>
-        .container { max-width: 1000px; margin-top: 2rem; }
-        .match-form { background: #f8f9fa; padding: 1.5rem; border-radius: 8px; }
-        .standings-table { margin-top: 2rem; }
-        .seed-number { font-weight: bold; background: #0d6efd; color: white; width: 30px; height: 30px; 
-                      border-radius: 50%; display: inline-flex; align-items: center; 
-                      justify-content: center; margin-right: 8px; }
-        .tiebreaker-info { font-size: 0.85rem; color: #6c757d; }
-        .nav-tabs { margin-bottom: 1rem; }
-        .matches-list { margin-top: 1rem; }
-        .head-to-head-form { margin-bottom: 1.5rem; }
-    </style>
 </head>
 <body class="bg-gray-100">
-    <div class="container mx-auto px-4 py-8">
+    <div class="container mx-auto px-4 py-8 max-w-3xl">
         <header class="text-center mb-8">
-            <h1 class="text-4xl font-bold text-gray-800 mb-2">XII-OS Tennis Tiebreaker</h1>
-            <p class="text-gray-600">Big 12 Tennis Standings and Tiebreaker Calculator</p>
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">Big 12 Women's Tennis Standings</h1>
+            <p class="text-gray-600">Final Seedings with Tiebreaker Analysis</p>
         </header>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <!-- Standings Section -->
-            <div class="bg-white rounded-lg shadow-md p-6">
-                <h2 class="text-2xl font-semibold mb-4">Current Standings</h2>
-                <div id="standings" class="space-y-2">
-                    <div class="animate-pulse">
-                        <div class="h-4 bg-gray-200 rounded w-3/4"></div>
-                        <div class="h-4 bg-gray-200 rounded w-1/2"></div>
-                        <div class="h-4 bg-gray-200 rounded w-5/6"></div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Recent Matches Section -->
-            <div class="bg-white rounded-lg shadow-md p-6">
-                <h2 class="text-2xl font-semibold mb-4">Recent Matches</h2>
-                <div id="matches" class="space-y-2">
-                    <div class="animate-pulse">
-                        <div class="h-4 bg-gray-200 rounded w-3/4"></div>
-                        <div class="h-4 bg-gray-200 rounded w-1/2"></div>
-                        <div class="h-4 bg-gray-200 rounded w-5/6"></div>
-                    </div>
+        <div class="bg-white rounded-lg shadow-md overflow-hidden">
+            <h2 class="text-xl font-semibold p-4 bg-gray-50 border-b">Final Seedings</h2>
+            <div id="standings" class="divide-y divide-gray-200">
+                <!-- Loading state -->
+                <div class="p-4 space-y-3 animate-pulse">
+                    <div class="h-5 bg-gray-200 rounded w-3/4"></div>
+                    <div class="h-5 bg-gray-200 rounded w-1/2"></div>
+                    <div class="h-5 bg-gray-200 rounded w-5/6"></div>
+                    <div class="h-5 bg-gray-200 rounded w-3/4"></div>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
-        // Function to fetch and display standings
         async function fetchStandings() {
             try {
-                console.log('Fetching standings...');
-                const response = await axios.get('/api/tennis/tiebreaker');
+                console.log('Fetching final standings/seedings...');
+                const response = await axios.get('/api/tennis/tiebreaker'); 
                 console.log('Standings response:', response.data);
                 const standings = response.data.standings || [];
-                console.log('Processed standings:', standings);
-                const standingsHtml = standings.map((team, index) => `
-                    <div class="flex justify-between items-center p-2 ${index % 2 === 0 ? 'bg-gray-50' : ''}">
-                        <span class="font-medium">${index + 1}. ${team.team}</span>
-                        <span class="text-gray-600">${team.points} points</span>
-                    </div>
-                `).join('');
+                console.log('Processed standings (final seeding):', standings);
+                
+                let standingsHtml = '';
+                let currentTieGroup = [];
+                let lastRecord = null;
+
+                // Function to render a group of tied teams
+                function renderGroup(group, addBrackets) {
+                    let groupHtml = '';
+                    const bracketClass = addBrackets ? 'border-l-4 border-blue-500 pl-3 ml-1' : '';
+                    group.forEach((team, index) => {
+                        const tiebreakerText = (team.tiebreaker && team.tiebreaker !== 'None needed') 
+                            ? `<div class="text-xs text-gray-500 mt-1">${team.tiebreaker}</div>` 
+                            : '';
+                        groupHtml += `
+                            <div class="flex justify-between items-start p-3 ${bracketClass}">
+                                <div>
+                                    <span class="font-semibold text-lg block">${team.seed}. ${team.team}</span>
+                                    ${tiebreakerText}
+                                </div>
+                                <div class="text-right flex-shrink-0 ml-4">
+                                    <span class="text-gray-700 font-medium text-sm">${team.confRecord || 'N/A'}</span>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    return groupHtml;
+                }
+
+                // Group teams by record to identify ties
+                standings.forEach((team, index) => {
+                    if (lastRecord !== null && team.confRecord === lastRecord) {
+                        // Continue existing tie group
+                        currentTieGroup.push(team);
+                    } else {
+                        // Finish previous group (if any)
+                        if (currentTieGroup.length > 0) {
+                            standingsHtml += renderGroup(currentTieGroup, currentTieGroup.length > 1);
+                        }
+                        // Start new group
+                        currentTieGroup = [team];
+                        lastRecord = team.confRecord;
+                    }
+                });
+                // Render the last group
+                if (currentTieGroup.length > 0) {
+                     standingsHtml += renderGroup(currentTieGroup, currentTieGroup.length > 1);
+                }
+
                 console.log('Generated standings HTML:', standingsHtml);
-                document.getElementById('standings').innerHTML = standingsHtml || '<p class="text-gray-500">No standings available</p>';
+                document.getElementById('standings').innerHTML = standingsHtml || '<p class="text-gray-500 p-4">No standings available</p>';
             } catch (error) {
                 console.error('Error fetching standings:', error);
                 console.error('Error details:', error.response?.data || error.message);
-                document.getElementById('standings').innerHTML = '<p class="text-red-500">Error loading standings</p>';
-            }
-        }
-
-        // Function to fetch and display recent matches
-        async function fetchMatches() {
-            try {
-                console.log('Fetching matches...');
-                const response = await axios.get('/api/tennis/matches');
-                console.log('Matches response:', response.data);
-                const matches = response.data.matches || [];
-                console.log('Processed matches:', matches);
-                const matchesHtml = matches.map(match => `
-                    <div class="flex justify-between items-center p-2 ${match.id % 2 === 0 ? 'bg-gray-50' : ''}">
-                        <span>${match.team1} vs ${match.team2}</span>
-                        <span class="font-medium">${match.score}</span>
-                    </div>
-                `).join('');
-                console.log('Generated matches HTML:', matchesHtml);
-                document.getElementById('matches').innerHTML = matchesHtml || '<p class="text-gray-500">No matches available</p>';
-            } catch (error) {
-                console.error('Error fetching matches:', error);
-                console.error('Error details:', error.response?.data || error.message);
-                document.getElementById('matches').innerHTML = '<p class="text-red-500">Error loading matches</p>';
+                document.getElementById('standings').innerHTML = '<p class="text-red-500 p-4">Error loading standings</p>';
             }
         }
 
         // Function to refresh data periodically
         function startAutoRefresh() {
             console.log('Starting auto-refresh...');
-            // Initial fetch
             fetchStandings();
-            fetchMatches();
-            
-            // Refresh every 30 seconds
             setInterval(() => {
                 console.log('Auto-refreshing data...');
                 fetchStandings();
-                fetchMatches();
-            }, 30000);
+            }, 30000); // Refresh every 30 seconds
         }
 
-        // Start auto-refresh when the page loads
         console.log('Page loaded, initializing...');
         startAutoRefresh();
     </script>
