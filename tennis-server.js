@@ -36,9 +36,20 @@ const matches = [
 // Initialize Express app
 const app = express();
 
-// Apply middleware
-app.use(helmet());
-app.use(cors());
+// Apply middleware with configured security settings
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false,
+  crossOriginOpenerPolicy: false,
+  crossOriginResourcePolicy: false
+}));
+
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
 app.use(express.json());
 
 // Health check endpoint
@@ -56,13 +67,26 @@ app.get('/health', (req, res) => {
 });
 
 // Tennis API endpoints
-app.get('/matches', (req, res) => {
-  logger.info('Fetching all matches');
-  res.json({ matches });
+app.get('/matches', async (req, res) => {
+  logger.info('Fetching women\'s matches from database via Python bridge');
+  try {
+    const pythonBridgeUrl = `http://localhost:${process.env.PYTHON_BRIDGE_PORT || 3005}/python/exec`;
+    const requestBody = {
+      script: 'get_tennis_data.py',
+      args: { type: 'matches', gender: 'women' }
+    };
+    // Requesting women's matches from the Python bridge using POST and request body
+    const response = await axios.post(pythonBridgeUrl, requestBody);
+    res.json({ matches: response.data.matches || [] });
+  } catch (error) {
+    logger.error(`Error fetching women\'s matches from Python bridge: ${error.response?.data?.error || error.message}`);
+    res.status(500).json({ error: 'Failed to fetch women\'s matches' });
+  }
 });
 
 app.get('/matches/:id', (req, res) => {
-  const match = matches.find(m => m.id === parseInt(req.params.id));
+  // Note: This endpoint might need adjustment if IDs differ between sample and db data
+  const match = matches.find(m => m.id === parseInt(req.params.id)); // Still uses sample data for individual match lookup
   if (!match) {
     logger.warn(`Match not found: ${req.params.id}`);
     return res.status(404).json({ error: 'Match not found' });
@@ -72,6 +96,7 @@ app.get('/matches/:id', (req, res) => {
 });
 
 app.post('/matches', (req, res) => {
+  // Note: This endpoint interacts with the sample data array, not the database
   const { team1, team2, score, date } = req.body;
   if (!team1 || !team2 || !score) {
     return res.status(400).json({ error: 'Missing required fields' });
@@ -91,19 +116,21 @@ app.post('/matches', (req, res) => {
 });
 
 // Tiebreaker calculation endpoint
-app.get('/tiebreaker', (req, res) => {
-  // Simple implementation - in reality, would calculate based on match records
-  const standings = [
-    { team: 'Texas', points: 21 },
-    { team: 'Baylor', points: 18 },
-    { team: 'Oklahoma', points: 15 },
-    { team: 'TCU', points: 12 },
-    { team: 'Kansas', points: 9 },
-    { team: 'Kansas State', points: 6 },
-  ];
-  
-  logger.info('Calculated tiebreaker standings');
-  res.json({ standings });
+app.get('/tiebreaker', async (req, res) => {
+  logger.info('Fetching women\'s tiebreaker standings from database via Python bridge');
+  try {
+    const pythonBridgeUrl = `http://localhost:${process.env.PYTHON_BRIDGE_PORT || 3005}/python/exec`;
+    const requestBody = {
+      script: 'get_tennis_data.py',
+      args: { type: 'standings', gender: 'women' }
+    };
+    // Requesting women's standings from the Python bridge using POST and request body
+    const response = await axios.post(pythonBridgeUrl, requestBody);
+    res.json({ standings: response.data.standings || [] });
+  } catch (error) {
+    logger.error(`Error fetching women\'s standings from Python bridge: ${error.response?.data?.error || error.message}`);
+    res.status(500).json({ error: 'Failed to fetch women\'s standings' });
+  }
 });
 
 // Stats endpoint

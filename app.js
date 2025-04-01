@@ -428,6 +428,20 @@ app.get('/api/basketball-transfers', async (req, res) => {
 
 // app.use('/api/content-management', require('./modules/content-management/routes'));
 
+// Import tennis tiebreaker routes
+const tennisRoutes = require('./tiebreakers/tennis/routes/tennis');
+
+// Add tennis routes
+app.use('/api/tennis', tennisRoutes);
+
+// Serve static files
+app.use(express.static('public'));
+
+// Add tennis tiebreaker to routes
+app.get('/tiebreakers/tennis', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'tiebreaker.html'));
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);

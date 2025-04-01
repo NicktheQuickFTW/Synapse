@@ -35,15 +35,27 @@ const mcpConfig = JSON.parse(fs.readFileSync(path.join(__dirname, 'mcp.json'), '
 const app = express();
 
 // Apply security middleware
-app.use(helmet());
-app.use(cors());
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false,
+  crossOriginOpenerPolicy: false,
+  crossOriginResourcePolicy: false
+}));
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Serve static files from the public directory
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Authentication middleware
 const authMiddleware = (req, res, next) => {
   // Skip auth for paths that don't require it
-  const publicPaths = ['/api/login', '/health'];
+  const publicPaths = ['/api/login', '/health', '/'];
   if (publicPaths.some(path => req.path.startsWith(path))) {
     return next();
   }
