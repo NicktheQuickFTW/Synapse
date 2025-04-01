@@ -417,7 +417,7 @@
             addButton.disabled = true;
             addButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Adding...';
             
-            fetch('/api/matches', {
+            fetch('/api/tennis/matches', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -485,7 +485,8 @@
                 </div>
             `;
             
-            fetch('/api/tiebreaker/Big 12')
+            // Change the endpoint to match what the gateway is routing to the tennis server
+            fetch('/api/tennis/standings') 
                 .then(response => {
                     if (!response.ok) {
                         throw new Error(`Error ${response.status}: ${response.statusText || 'Failed to load standings'}`);
@@ -493,7 +494,7 @@
                     return response.json();
                 })
                 .then(data => {
-                    if (!data.final_seedings || data.final_seedings.length === 0) {
+                    if (!data.standings || data.standings.length === 0) {
                         seedingsContainer.innerHTML = `
                             <div class="alert alert-info">
                                 <i class="fas fa-info-circle me-2"></i>No standings data available. Add some matches first.
@@ -504,22 +505,25 @@
                     
                     let seedingsHtml = '<div class="mb-4">';
                     
-                    // Display seedings with new column structure
-                    data.final_seedings.forEach(team => {
-                        const tiebreakerInfo = team.tiebreaker_applied 
-                            ? `<div class="seed-tiebreaker"><i class="fas fa-exclamation-triangle me-1"></i>Tiebreaker: ${team.tiebreaker_applied}</div>` 
+                    // Display seedings with separate column for seed number
+                    data.standings.forEach(team => {
+                        // Create tiebreaker info display
+                        const tiebreakerInfo = team.tiebreaker && team.tiebreaker !== "None needed"
+                            ? `<div class="seed-tiebreaker"><i class="fas fa-exclamation-triangle me-1"></i>Tiebreaker: ${team.tiebreaker}</div>` 
                             : '';
+                        
+                        // Format team name with ITA rank
+                        const displayName = team.ita_rank ? `#${team.ita_rank} ${team.team}` : team.team;
                             
-                        // Updated HTML structure for seed card with separate column for seed number
                         seedingsHtml += `
                             <div class="seed-card">
-                                <div class="seed-rank-column">${team.seed}</div>
+                                <div class="seed-rank-column">${team.seed}</div> 
                                 <div class="seed-info">
-                                    <div class="seed-team">${team.team}</div>
+                                    <div class="seed-team">${displayName}</div>
                                     <div class="seed-record">
-                                        <span class="badge bg-success me-1">${team.wins} W</span>
-                                        <span class="badge bg-danger me-1">${team.losses} L</span>
-                                        <span class="badge bg-secondary">${(team.win_percentage * 100).toFixed(1)}%</span>
+                                        <span class="badge bg-success me-1">${team.wins || 0} W</span>
+                                        <span class="badge bg-danger me-1">${team.losses || 0} L</span>
+                                        <span class="badge bg-secondary">${((team.win_percentage || 0) * 100).toFixed(1)}%</span>
                                     </div>
                                     ${tiebreakerInfo}
                                 </div>
@@ -529,52 +533,42 @@
                     
                     seedingsHtml += '</div>';
                     
-                    // Check if regular_standings exists in the data - it might not from this endpoint
-                    const regular_standings = data.regular_standings || data.final_seedings; // Fallback to final if regular isn't separate
-
-                    if (regular_standings && regular_standings.length > 0) {
-                        // Add regular standings table
+                    // Add regular standings table (re-using the same data)
+                    seedingsHtml += `
+                        <h5 class="mt-4 mb-3"><i class="fas fa-table me-2"></i>Regular Season Standings</h5>
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Team</th>
+                                        <th>W</th>
+                                        <th>L</th>
+                                        <th>Win %</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                    `;
+                    
+                    data.standings.forEach(team => {
+                        // Format team name with ITA rank for the table view
+                        const displayName = team.ita_rank ? `#${team.ita_rank} ${team.team}` : team.team;
+                        
                         seedingsHtml += `
-                            <h5 class="mt-4 mb-3"><i class="fas fa-table me-2"></i>Regular Season Standings (Approximation)</h5>
-                            <div class="table-responsive">
-                                <table class="table table-striped table-hover">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th>Team</th>
-                                            <th>W</th>
-                                            <th>L</th>
-                                            <th>Win %</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
+                            <tr>
+                                <td>${displayName}</td>
+                                <td>${team.wins || 0}</td>
+                                <td>${team.losses || 0}</td>
+                                <td>${((team.win_percentage || 0) * 100).toFixed(1)}%</td>
+                            </tr>
                         `;
-                        
-                        regular_standings.forEach(team => {
-                             // Ensure win_percentage exists and is a number, default to 0 if not
-                            const winPercentage = (typeof team.win_percentage === 'number') ? team.win_percentage : 0;
-                            seedingsHtml += `
-                                <tr>
-                                    <td>${team.team || 'N/A'}</td>
-                                    <td>${team.wins || 0}</td>
-                                    <td>${team.losses || 0}</td>
-                                    <td>${(winPercentage * 100).toFixed(1)}%</td>
-                                </tr>
-                            `;
-                        });
-                        
-                        seedingsHtml += '</tbody></table></div>';
-                         // Update the wins chart (using final standings as approximation)
-                         updateWinsChart(data.final_seedings);
-                    } else {
-                        // If no regular standings data, maybe hide the chart or show a message
-                        const chartCanvas = document.getElementById('winsChart');
-                        if (chartCanvas) chartCanvas.style.display = 'none'; 
-                    }
-                   
+                    });
+                    
+                    seedingsHtml += '</tbody></table></div>';
+                    
                     seedingsContainer.innerHTML = seedingsHtml;
                     
-                    // Update the wins chart (using final standings as approximation)
-                    updateWinsChart(data.final_seedings);
+                    // Update the wins chart
+                    updateWinsChart(data.standings);
                 })
                 .catch(error => {
                     console.error('Error loading standings:', error);
@@ -600,8 +594,8 @@
             
             // Prepare data
             const teams = standings.map(team => team.team);
-            const wins = standings.map(team => team.wins);
-            const losses = standings.map(team => team.losses);
+            const wins = standings.map(team => team.wins || 0);
+            const losses = standings.map(team => team.losses || 0);
             
             // Check if chart already exists and destroy it
             if (window.winsChart) {
@@ -665,7 +659,7 @@
                 </div>
             `;
             
-            fetch('/api/matches')
+            fetch('/api/tennis/matches')
                 .then(response => {
                     if (!response.ok) {
                         throw new Error(`Error ${response.status}: ${response.statusText || 'Failed to load matches'}`);
@@ -673,7 +667,10 @@
                     return response.json();
                 })
                 .then(data => {
-                    if (data.length === 0) {
+                    // The matches are likely in data.matches based on the tennis-server.js endpoint
+                    const matches = data.matches || [];
+                    
+                    if (matches.length === 0) {
                         matchesContainer.innerHTML = `
                             <div class="alert alert-info">
                                 <i class="fas fa-info-circle me-2"></i>No matches available. Add some matches first.
@@ -683,7 +680,7 @@
                     }
                     
                     // Group matches by date
-                    const matchesByDate = groupByDate(data);
+                    const matchesByDate = groupByDate(matches);
                     
                     let html = '';
                     

@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Big 12 Women's Tennis Standings</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #0d6efd;
+            --secondary-color: #6c757d;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background-color: #f8f9fa;
+            font-weight: bold;
+            color: #495057;
+        }
+
+        tr:hover {
+            background-color: #f8f9fa;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            font-style: italic;
+            color: #666;
+        }
+
+        .error {
+            color: #dc3545;
+            text-align: center;
+            padding: 20px;
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+
+        .header {
+            background-color: #000;
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .standings-container {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .team-card {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+            transition: transform 0.2s;
+        }
+
+        .team-card:hover {
+            transform: translateX(5px);
+            background-color: #f8f9fa;
+        }
+
+        .seed-number {
+            width: 40px;
+            font-weight: bold;
+            color: var(--primary-color);
+            font-size: 1.2rem;
+            text-align: center;
+        }
+
+        .team-info {
+            flex: 1;
+            margin-left: 15px;
+        }
+
+        .team-name {
+            font-weight: 500;
+            font-size: 1.1rem;
+            margin-bottom: 5px;
+        }
+
+        .team-record {
+            color: var(--secondary-color);
+            font-size: 0.9rem;
+        }
+
+        .tiebreaker-info {
+            font-size: 0.85rem;
+            color: #666;
+            margin-top: 5px;
+            font-style: italic;
+        }
+
+        .refresh-button {
+            display: block;
+            margin: 20px auto;
+            padding: 10px 20px;
+            background-color: #333;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .refresh-button:hover {
+            background-color: #444;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1 class="mb-0">Big 12 Women's Tennis Standings</h1>
+                <button onclick="fetchStandings()" class="refresh-button">
+                    <i class="fas fa-sync-alt"></i> Refresh
+                </button>
+            </div>
+        </div>
+
+        <div id="standings-container" class="standings-container">
+            <div class="loading">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function fetchStandings() {
+            const standingsDiv = document.getElementById('standings-container');
+            standingsDiv.innerHTML = '<div class="loading">Loading standings...</div>';
+            
+            try {
+                const response = await fetch('/api/tennis/standings');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                
+                if (!data.standings || data.standings.length === 0) {
+                    standingsDiv.innerHTML = '<div class="error">No standings data available</div>';
+                    return;
+                }
+
+                const table = document.createElement('table');
+                
+                // Create table header
+                const thead = document.createElement('thead');
+                thead.innerHTML = `
+                    <tr>
+                        <th>Rank</th>
+                        <th>Team</th>
+                        <th>Overall</th>
+                        <th>Conference</th>
+                        <th>Conf Win %</th>
+                        <th>Tiebreaker</th>
+                    </tr>
+                `;
+                table.appendChild(thead);
+                
+                // Create table body
+                const tbody = document.createElement('tbody');
+                data.standings.forEach((team, index) => {
+                    const row = document.createElement('tr');
+                    const teamName = team.ita_rank ? `#${team.ita_rank} ${team.team}` : team.team;
+                    row.innerHTML = `
+                        <td>${index + 1}</td>
+                        <td>${teamName}</td>
+                        <td>${team.wins}-${team.losses}</td>
+                        <td>${team.confRecord}</td>
+                        <td>${(team.win_percent * 100).toFixed(1)}%</td>
+                        <td><span class="text-muted">${team.tiebreaker}</span></td>
+                    `;
+                    tbody.appendChild(row);
+                });
+                
+                table.appendChild(tbody);
+                standingsDiv.innerHTML = '';
+                standingsDiv.appendChild(table);
+            } catch (error) {
+                console.error('Error:', error);
+                standingsDiv.innerHTML = `
+                    <div class="error">
+                        Error loading standings. Please try refreshing the page.
+                        <br>
+                        ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        // Load standings when page loads
+        document.addEventListener('DOMContentLoaded', fetchStandings);
+    </script>
+    <script src="https://kit.fontawesome.com/a076d05399.js"></script>
+</body>
+</html> 
