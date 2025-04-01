@@ -9,7 +9,20 @@ module.exports = {
       port: process.env.DB_PORT || 5432,
       database: process.env.DB_NAME || 'xii_os_dev',
       user: process.env.DB_USER || 'postgres',
-      password: process.env.DB_PASSWORD || 'postgres'
+      password: process.env.DB_PASSWORD || 'postgres',
+      ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
+      connectionTimeout: 10000, // 10 seconds
+      acquireConnectionTimeout: 10000 // 10 seconds
+    },
+    pool: {
+      min: 0,
+      max: 3,
+      acquireTimeoutMillis: 10000,
+      createTimeoutMillis: 10000,
+      destroyTimeoutMillis: 10000,
+      idleTimeoutMillis: 10000,
+      reapIntervalMillis: 1000,
+      createRetryIntervalMillis: 100
     },
     migrations: {
       directory: './db/migrations',
@@ -17,8 +30,7 @@ module.exports = {
     },
     seeds: {
       directory: './db/seeds'
-    },
-    pool: { min: 0, max: 7 }
+    }
   },
 
   test: {
@@ -28,7 +40,20 @@ module.exports = {
       port: process.env.DB_PORT || 5432,
       database: process.env.TEST_DB_NAME || 'xii_os_test',
       user: process.env.DB_USER || 'postgres',
-      password: process.env.DB_PASSWORD || 'postgres'
+      password: process.env.DB_PASSWORD || 'postgres',
+      ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
+      connectionTimeout: 10000,
+      acquireConnectionTimeout: 10000
+    },
+    pool: {
+      min: 0,
+      max: 3,
+      acquireTimeoutMillis: 10000,
+      createTimeoutMillis: 10000,
+      destroyTimeoutMillis: 10000,
+      idleTimeoutMillis: 10000,
+      reapIntervalMillis: 1000,
+      createRetryIntervalMillis: 100
     },
     migrations: {
       directory: './db/migrations',
@@ -36,21 +61,37 @@ module.exports = {
     },
     seeds: {
       directory: './db/seeds/test'
-    },
-    pool: { min: 0, max: 7 }
+    }
   },
 
   production: {
     client: 'pg',
-    connection: process.env.DATABASE_URL,
+    connection: process.env.DATABASE_URL || {
+      host: process.env.DB_HOST,
+      port: process.env.DB_PORT,
+      database: process.env.DB_NAME,
+      user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+      ssl: { rejectUnauthorized: false },
+      connectionTimeout: 10000,
+      acquireConnectionTimeout: 10000
+    },
+    pool: {
+      min: 0,
+      max: 3,
+      acquireTimeoutMillis: 10000,
+      createTimeoutMillis: 10000,
+      destroyTimeoutMillis: 10000,
+      idleTimeoutMillis: 10000,
+      reapIntervalMillis: 1000,
+      createRetryIntervalMillis: 100
+    },
     migrations: {
       directory: './db/migrations',
       tableName: 'knex_migrations'
     },
     seeds: {
       directory: './db/seeds/production'
-    },
-    pool: { min: 2, max: 10 },
-    ssl: { rejectUnauthorized: false }
+    }
   }
 }; 
