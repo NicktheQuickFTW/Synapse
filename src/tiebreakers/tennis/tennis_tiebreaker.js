@@ -2,59 +2,155 @@ const knex = require('../../db/knex');
 
 // Get current standings from database
 async function getCurrentStandings(sport = 'womens-tennis') {
-  const standings = await knex('tennis_stats')
-    .select('*')
-    .where('sport', sport)
-    .orderBy('win_percent', 'desc');
-  return standings;
+  try {
+    const standings = await knex('tennis_stats')
+      .select('*')
+      .where('sport', sport)
+      .orderBy('win_percent', 'desc');
+    
+    if (!standings || standings.length === 0) {
+      console.warn(`No standings found for sport: ${sport}`);
+      return [];
+    }
+    
+    return standings.map(team => ({
+      team: team.team,
+      wins: parseInt(team.wins) || 0,
+      losses: parseInt(team.losses) || 0,
+      conf_wins: parseInt(team.conf_wins) || 0,
+      conf_losses: parseInt(team.conf_losses) || 0,
+      win_percent: parseFloat(team.win_percent) || 0,
+      ita_rank: parseInt(team.ita_rank) || 999, // Default to 999 if no ITA rank
+      current_streak: team.current_streak || '0'
+    }));
+  } catch (error) {
+    console.error(`Error fetching standings for ${sport}:`, error);
+    return [];
+  }
 }
 
 // Get remaining matches from database
 async function getRemainingMatches(sport = 'womens-tennis') {
-  const matches = await knex('tennis_stats')
-    .select('*')
-    .where('sport', sport)
-    .whereNotNull('schedule');
-  
-  // Convert to the format expected by the analysis functions
-  const matchesByTeam = {};
-  matches.forEach(team => {
-    const schedule = JSON.parse(team.schedule);
-    const remainingMatches = schedule.filter(game => !game.result);
+  try {
+    const matches = await knex('tennis_stats')
+      .select('team', 'schedule')
+      .where('sport', sport)
+      .whereNotNull('schedule');
     
-    if (remainingMatches.length > 0) {
-      matchesByTeam[team.team] = remainingMatches.map(match => ({
-        opponent: match.opponent,
-        date: match.date,
-        location: match.location,
-        isConference: match.opponent.includes('*')
-      }));
+    if (!matches || matches.length === 0) {
+      console.warn(`No schedule data found for sport: ${sport}`);
+      return {};
     }
-  });
-  
-  return matchesByTeam;
+    
+    // Convert to the format expected by the analysis functions
+    const matchesByTeam = {};
+    matches.forEach(team => {
+      let schedule;
+      try {
+        schedule = typeof team.schedule === 'string' ? JSON.parse(team.schedule) : team.schedule;
+      } catch (error) {
+        console.error(`Error parsing schedule for team ${team.team}:`, error);
+        schedule = [];
+      }
+      
+      if (!Array.isArray(schedule)) {
+        console.warn(`Schedule for ${team.team} is not an array. Type: ${typeof schedule}`);
+        return;
+      }
+      
+      // Filter for future matches (no result yet)
+      // Also filter to only include conference matches for analysis
+      const today = new Date();
+      const remainingMatches = schedule.filter(game => {
+        // Skip games with results
+        if (game.result) return false;
+        
+        // Check if the game is in the future
+        try {
+          const gameDate = new Date(game.date);
+          return gameDate >= today && game.isConference;
+        } catch (e) {
+          // If we can't parse the date, assume it's upcoming
+          return game.isConference;
+        }
+      });
+      
+      if (remainingMatches.length > 0) {
+        matchesByTeam[team.team] = remainingMatches.map(match => ({
+          opponent: match.opponent,
+          date: match.date,
+          location: match.location,
+          isConference: match.isConference
+        }));
+      }
+    });
+    
+    return matchesByTeam;
+  } catch (error) {
+    console.error(`Error fetching remaining matches for ${sport}:`, error);
+    return {};
+  }
 }
 
 // Get head-to-head results from database
 async function getHeadToHead(sport = 'womens-tennis') {
-  const teams = await knex('tennis_stats')
-    .select('team', 'schedule')
-    .where('sport', sport)
-    .whereNotNull('schedule');
-  
-  // Convert to the format expected by the analysis functions
-  const headToHead = {};
-  teams.forEach(team => {
-    const schedule = JSON.parse(team.schedule);
-    schedule.forEach(game => {
-      if (game.result) {
-        const key = `${team.team} vs ${game.opponent.replace(' *', '')}`;
-        headToHead[key] = game.result === 'W' ? team.team : game.opponent.replace(' *', '');
+  try {
+    const teams = await knex('tennis_stats')
+      .select('team', 'schedule')
+      .where('sport', sport)
+      .whereNotNull('schedule');
+    
+    if (!teams || teams.length === 0) {
+      console.warn(`No schedule data found for sport: ${sport}`);
+      return {};
+    }
+    
+    // Convert to the format expected by the analysis functions
+    const headToHead = {};
+    const matchDetails = {}; // Store more details about each head-to-head match
+    
+    teams.forEach(team => {
+      let schedule;
+      try {
+        schedule = typeof team.schedule === 'string' ? JSON.parse(team.schedule) : team.schedule;
+      } catch (error) {
+        console.error(`Error parsing schedule for team ${team.team}:`, error);
+        schedule = [];
       }
+      
+      if (!Array.isArray(schedule)) {
+        console.warn(`Schedule for ${team.team} is not an array. Type: ${typeof schedule}`);
+        return;
+      }
+      
+      schedule.forEach(game => {
+        if (game.result && game.isConference) {
+          const key = `${team.team} vs ${game.opponent}`;
+          const winner = game.result === 'W' ? team.team : game.opponent;
+          const loser = game.result === 'W' ? game.opponent : team.team;
+          
+          headToHead[key] = winner;
+          
+          // Store more details about the match
+          matchDetails[key] = {
+            date: game.date,
+            location: game.location,
+            winner,
+            loser,
+            score: game.score || 'Unknown' // Some schedules might include score data
+          };
+        }
+      });
     });
-  });
-  
-  return headToHead;
+    
+    return { 
+      winners: headToHead, // The original format for backward compatibility 
+      matchDetails // New, more detailed format
+    };
+  } catch (error) {
+    console.error(`Error fetching head-to-head data for ${sport}:`, error);
+    return { winners: {}, matchDetails: {} };
+  }
 }
 
 // Generate all possible remaining match outcomes for a team
@@ -69,75 +165,110 @@ function generateTeamScenarios(teamName, team, matches) {
   
   // Generate each possible scenario
   for (let i = 0; i < totalScenarios; i++) {
-    let wins = team.conf_wins;
-    let losses = team.conf_losses;
+    let wins = team.wins;
+    let losses = team.losses;
+    let confWins = team.conf_wins;
+    let confLosses = team.conf_losses;
     const matchResults = [];
     
     // Convert index to binary representation of wins/losses
     for (let j = 0; j < matchCount; j++) {
       // Check if bit j is set in i
       const win = (i & (1 << j)) !== 0;
+      const isConference = matches[j].isConference;
       
       if (win) {
         wins++;
+        if (isConference) confWins++;
+        
         matchResults.push({ 
           opponent: matches[j].opponent, 
           result: "Win", 
           date: matches[j].date, 
           location: matches[j].location,
-          isConference: matches[j].isConference
+          isConference: isConference
         });
       } else {
         losses++;
+        if (isConference) confLosses++;
+        
         matchResults.push({ 
           opponent: matches[j].opponent, 
           result: "Loss", 
           date: matches[j].date, 
           location: matches[j].location,
-          isConference: matches[j].isConference
+          isConference: isConference
         });
       }
     }
     
     // Calculate win percentages
-    const winPercent = wins / (wins + losses);
+    const totalGames = wins + losses;
+    const winPercent = totalGames > 0 ? wins / totalGames : 0;
+    
+    const totalConfGames = confWins + confLosses;
+    const confWinPercent = totalConfGames > 0 ? confWins / totalConfGames : 0;
     
     // Add scenario
     scenarios.push({
       record: `${wins}-${losses}`,
-      confRecord: `${wins}-${losses}`,
+      confRecord: `${confWins}-${confLosses}`,
       winPercent: winPercent.toFixed(3),
-      confWinPercent: winPercent.toFixed(3),
+      confWinPercent: confWinPercent.toFixed(3),
       matchResults
     });
   }
   
-  // Sort scenarios by win percentage (descending)
+  // Sort scenarios by conference win percentage first, then overall
   scenarios.sort((a, b) => {
-    const winPercentA = parseFloat(a.winPercent);
-    const winPercentB = parseFloat(b.winPercent);
-    return winPercentB - winPercentA;
+    const confWinPercentA = parseFloat(a.confWinPercent);
+    const confWinPercentB = parseFloat(b.confWinPercent);
+    
+    if (confWinPercentB !== confWinPercentA) {
+      return confWinPercentB - confWinPercentA;
+    }
+    
+    return parseFloat(b.winPercent) - parseFloat(a.winPercent);
   });
+  
+  // Get the best and worst possible records
+  const bestScenario = scenarios[0];
+  const worstScenario = scenarios[scenarios.length - 1];
   
   return {
     currentRecord: `${team.wins}-${team.losses}`,
+    currentConfRecord: `${team.conf_wins}-${team.conf_losses}`,
     currentWinPercent: team.win_percent.toFixed(3),
+    currentConfWinPercent: team.conf_wins / (team.conf_wins + team.conf_losses || 1),
     itaRank: team.ita_rank,
     remainingMatches: matches,
     possibleScenarios: scenarios,
-    bestPossibleRecord: scenarios[0].record,
-    bestPossibleWinPercent: scenarios[0].winPercent,
-    worstPossibleRecord: scenarios[scenarios.length - 1].record,
-    worstPossibleWinPercent: scenarios[scenarios.length - 1].winPercent
+    bestPossibleRecord: bestScenario.record,
+    bestPossibleConfRecord: bestScenario.confRecord,
+    bestPossibleWinPercent: bestScenario.winPercent,
+    bestPossibleConfWinPercent: bestScenario.confWinPercent,
+    worstPossibleRecord: worstScenario.record,
+    worstPossibleConfRecord: worstScenario.confRecord,
+    worstPossibleWinPercent: worstScenario.winPercent,
+    worstPossibleConfWinPercent: worstScenario.confWinPercent
   };
 }
 
 // Apply tiebreaker rules to determine seeding
-function applyTiebreakers(teams, headToHead) {
-  // Group teams by win percentage
+function applyTiebreakers(teams, headToHeadData) {
+  // Extract the winners object for backward compatibility
+  const headToHead = headToHeadData.winners || headToHeadData;
+  const matchDetails = headToHeadData.matchDetails || {};
+  
+  // Group teams by conference win percentage
   const teamsByWinPercent = {};
   teams.forEach(team => {
-    const winPercent = team.win_percent.toFixed(3);
+    // Use conference win percentage when available, otherwise fall back to overall
+    const confTotal = team.conf_wins + team.conf_losses;
+    const winPercent = confTotal > 0 ? 
+      (team.conf_wins / confTotal).toFixed(3) : 
+      team.win_percent.toFixed(3);
+    
     if (!teamsByWinPercent[winPercent]) {
       teamsByWinPercent[winPercent] = [];
     }
@@ -157,6 +288,7 @@ function applyTiebreakers(teams, headToHead) {
           seed: seedings.length + 1,
           team: tiedTeams[0].team,
           record: `${tiedTeams[0].wins}-${tiedTeams[0].losses}`,
+          confRecord: `${tiedTeams[0].conf_wins}-${tiedTeams[0].conf_losses}`,
           winPercent: parseFloat(winPercent),
           tiebreaker: "None needed"
         });
@@ -173,10 +305,14 @@ function applyTiebreakers(teams, headToHead) {
         const h2hKey2 = `${team2} vs ${team1}`;
         
         let winner = null;
+        let matchDetail = null;
+        
         if (headToHead[h2hKey1]) {
           winner = headToHead[h2hKey1];
+          matchDetail = matchDetails[h2hKey1];
         } else if (headToHead[h2hKey2]) {
           winner = headToHead[h2hKey2];
+          matchDetail = matchDetails[h2hKey2];
         }
         
         if (winner) {
@@ -184,18 +320,25 @@ function applyTiebreakers(teams, headToHead) {
           const winnerTeam = tiedTeams.find(t => t.team === winner);
           const loserTeam = tiedTeams.find(t => t.team !== winner);
           
+          let tiebreakerReason = `Head-to-head vs ${loserTeam.team}`;
+          if (matchDetail) {
+            tiebreakerReason += ` (${matchDetail.date} at ${matchDetail.location})`;
+          }
+          
           seedings.push({
             seed: seedings.length + 1,
             team: winnerTeam.team,
             record: `${winnerTeam.wins}-${winnerTeam.losses}`,
+            confRecord: `${winnerTeam.conf_wins}-${winnerTeam.conf_losses}`,
             winPercent: parseFloat(winPercent),
-            tiebreaker: `Head-to-head vs ${loserTeam.team}`
+            tiebreaker: tiebreakerReason
           });
           
           seedings.push({
             seed: seedings.length + 1,
             team: loserTeam.team,
             record: `${loserTeam.wins}-${loserTeam.losses}`,
+            confRecord: `${loserTeam.conf_wins}-${loserTeam.conf_losses}`,
             winPercent: parseFloat(winPercent),
             tiebreaker: `Lost head-to-head vs ${winnerTeam.team}`
           });
@@ -207,6 +350,7 @@ function applyTiebreakers(teams, headToHead) {
             seed: seedings.length + 1,
             team: tiedTeams[0].team,
             record: `${tiedTeams[0].wins}-${tiedTeams[0].losses}`,
+            confRecord: `${tiedTeams[0].conf_wins}-${tiedTeams[0].conf_losses}`,
             winPercent: parseFloat(winPercent),
             tiebreaker: `ITA ranking (#${tiedTeams[0].ita_rank} vs #${tiedTeams[1].ita_rank})`
           });
@@ -215,6 +359,7 @@ function applyTiebreakers(teams, headToHead) {
             seed: seedings.length + 1,
             team: tiedTeams[1].team,
             record: `${tiedTeams[1].wins}-${tiedTeams[1].losses}`,
+            confRecord: `${tiedTeams[1].conf_wins}-${tiedTeams[1].conf_losses}`,
             winPercent: parseFloat(winPercent),
             tiebreaker: `Lower ITA ranking (#${tiedTeams[1].ita_rank} vs #${tiedTeams[0].ita_rank})`
           });
@@ -228,7 +373,12 @@ function applyTiebreakers(teams, headToHead) {
         
         // Initialize records
         tiedTeams.forEach(team => {
-          miniRecords[team.team] = { wins: 0, losses: 0, winPercent: 0 };
+          miniRecords[team.team] = { 
+            wins: 0, 
+            losses: 0, 
+            winPercent: 0,
+            matches: [] // Store details of the matches for reporting
+          };
         });
         
         // Calculate wins and losses in games against each other
@@ -238,21 +388,59 @@ function applyTiebreakers(teams, headToHead) {
               const h2hKey1 = `${team1.team} vs ${team2.team}`;
               const h2hKey2 = `${team2.team} vs ${team1.team}`;
               
+              // Check both possible keys
+              let winner = null;
+              let matchDetail = null;
+              
               if (headToHead[h2hKey1]) {
-                if (headToHead[h2hKey1] === team1.team) {
-                  miniRecords[team1.team].wins++;
-                  miniRecords[team2.team].losses++;
-                } else {
-                  miniRecords[team1.team].losses++;
-                  miniRecords[team2.team].wins++;
-                }
+                winner = headToHead[h2hKey1];
+                matchDetail = matchDetails[h2hKey1];
               } else if (headToHead[h2hKey2]) {
-                if (headToHead[h2hKey2] === team1.team) {
+                winner = headToHead[h2hKey2];
+                matchDetail = matchDetails[h2hKey2];
+              }
+              
+              if (winner) {
+                if (winner === team1.team) {
                   miniRecords[team1.team].wins++;
                   miniRecords[team2.team].losses++;
+                  
+                  // Store match details
+                  if (matchDetail) {
+                    miniRecords[team1.team].matches.push({
+                      opponent: team2.team,
+                      result: 'W',
+                      date: matchDetail.date,
+                      location: matchDetail.location
+                    });
+                    
+                    miniRecords[team2.team].matches.push({
+                      opponent: team1.team,
+                      result: 'L',
+                      date: matchDetail.date,
+                      location: matchDetail.location
+                    });
+                  }
                 } else {
                   miniRecords[team1.team].losses++;
                   miniRecords[team2.team].wins++;
+                  
+                  // Store match details
+                  if (matchDetail) {
+                    miniRecords[team1.team].matches.push({
+                      opponent: team2.team,
+                      result: 'L',
+                      date: matchDetail.date,
+                      location: matchDetail.location
+                    });
+                    
+                    miniRecords[team2.team].matches.push({
+                      opponent: team1.team,
+                      result: 'W',
+                      date: matchDetail.date,
+                      location: matchDetail.location
+                    });
+                  }
                 }
               }
             }
@@ -284,14 +472,25 @@ function applyTiebreakers(teams, headToHead) {
         // Add to seedings with explanation
         sortedTeams.forEach(team => {
           const record = miniRecords[team.team];
+          
+          // Create a detailed explanation of the mini round-robin
+          let matchDetails = '';
+          if (record.matches.length > 0) {
+            matchDetails = ' - ' + record.matches.map(m => 
+              `${m.result} vs ${m.opponent} (${m.date})`
+            ).join(', ');
+          }
+          
           seedings.push({
             seed: seedings.length + 1,
             team: team.team,
             record: `${team.wins}-${team.losses}`,
+            confRecord: `${team.conf_wins}-${team.conf_losses}`,
             winPercent: parseFloat(winPercent),
-            tiebreaker: `Mini round-robin: ${record.wins}-${record.losses} (${(record.winPercent * 100).toFixed(1)}%)`,
+            tiebreaker: `Mini round-robin: ${record.wins}-${record.losses} (${(record.winPercent * 100).toFixed(1)}%)${matchDetails}`,
             miniRoundRobinRecord: `${record.wins}-${record.losses}`,
-            miniRoundRobinPercent: record.winPercent
+            miniRoundRobinPercent: record.winPercent,
+            miniRoundRobinMatches: record.matches
           });
         });
       }
@@ -457,46 +656,102 @@ function identifyKeyMatches(teams, remainingMatches) {
 }
 
 // Generate comprehensive analysis
-async function generateComprehensiveAnalysis() {
-  // Get data from database
-  const currentStandings = await getCurrentStandings();
-  const remainingMatches = await getRemainingMatches();
-  const headToHead = await getHeadToHead();
-  
-  // Generate analysis
-  const currentSeedings = applyTiebreakers(currentStandings, headToHead);
-  const seedingRanges = calculateSeedingRanges(currentStandings, remainingMatches, headToHead);
-  const keyMatches = identifyKeyMatches(currentStandings, remainingMatches);
-  
-  // Generate scenarios for key teams
-  const teamScenarios = {
-    UCF: generateTeamScenarios("UCF", 
-      currentStandings.find(t => t.team === "UCF"),
-      remainingMatches["UCF"] || []
-    ),
-    BYU: generateTeamScenarios("BYU",
-      currentStandings.find(t => t.team === "BYU"),
-      remainingMatches["BYU"] || []
-    ),
-    TexasTech: generateTeamScenarios("Texas Tech",
-      currentStandings.find(t => t.team === "Texas Tech"),
-      remainingMatches["Texas Tech"] || []
-    ),
-    OklahomaState: generateTeamScenarios("Oklahoma State",
-      currentStandings.find(t => t.team === "Oklahoma State"),
-      remainingMatches["Oklahoma State"] || []
-    )
-  };
-  
-  return {
-    currentStandings,
-    remainingMatches,
-    headToHead,
-    currentSeedings,
-    seedingRanges,
-    keyMatches,
-    teamScenarios
-  };
+async function generateComprehensiveAnalysis(sport = 'womens-tennis') {
+  try {
+    // Get data from database
+    const currentStandings = await getCurrentStandings(sport);
+    
+    if (!currentStandings || currentStandings.length === 0) {
+      return {
+        error: `No standings data found for ${sport}`,
+        sport
+      };
+    }
+    
+    const remainingMatches = await getRemainingMatches(sport);
+    const headToHeadData = await getHeadToHead(sport);
+    
+    // For backward compatibility
+    const headToHead = headToHeadData.winners || headToHeadData;
+    
+    // Generate analysis
+    const currentSeedings = applyTiebreakers(currentStandings, headToHeadData);
+    const seedingRanges = calculateSeedingRanges(currentStandings, remainingMatches, headToHead);
+    const keyMatches = identifyKeyMatches(currentStandings, remainingMatches);
+    
+    // Generate scenarios for all teams (limit to teams with remaining matches to avoid excessive computation)
+    const teamScenarios = {};
+    const teamsWithRemainingMatches = currentStandings.filter(team => 
+      remainingMatches[team.team] && remainingMatches[team.team].length > 0
+    );
+    
+    // For teams with too many remaining matches, we'll limit the scenario generation
+    teamsWithRemainingMatches.forEach(team => {
+      const matches = remainingMatches[team.team] || [];
+      
+      // If there are too many matches, limit the combinations we analyze
+      // 2^10 = 1024 combinations, which is manageable
+      if (matches.length > 10) {
+        console.warn(`Team ${team.team} has ${matches.length} remaining matches. Limiting analysis to 10 matches.`);
+        const limitedMatches = matches.slice(0, 10);
+        teamScenarios[team.team] = generateTeamScenarios(team.team, team, limitedMatches);
+        teamScenarios[team.team].truncated = true;
+      } else {
+        teamScenarios[team.team] = generateTeamScenarios(team.team, team, matches);
+      }
+    });
+    
+    // For teams with no remaining matches, just provide current status
+    currentStandings
+      .filter(team => !teamsWithRemainingMatches.some(t => t.team === team.team))
+      .forEach(team => {
+        teamScenarios[team.team] = {
+          currentRecord: `${team.wins}-${team.losses}`,
+          currentConfRecord: `${team.conf_wins}-${team.conf_losses}`,
+          currentWinPercent: team.win_percent.toFixed(3),
+          itaRank: team.ita_rank,
+          remainingMatches: [],
+          possibleScenarios: [{
+            record: `${team.wins}-${team.losses}`,
+            confRecord: `${team.conf_wins}-${team.conf_losses}`,
+            winPercent: team.win_percent.toFixed(3),
+            confWinPercent: (team.conf_wins / (team.conf_wins + team.conf_losses)).toFixed(3),
+            matchResults: []
+          }],
+          bestPossibleRecord: `${team.wins}-${team.losses}`,
+          bestPossibleWinPercent: team.win_percent.toFixed(3),
+          worstPossibleRecord: `${team.wins}-${team.losses}`,
+          worstPossibleWinPercent: team.win_percent.toFixed(3)
+        };
+      });
+    
+    return {
+      sport,
+      currentDate: new Date().toISOString(),
+      currentStandings,
+      remainingMatches,
+      headToHead: headToHeadData,
+      currentSeedings,
+      seedingRanges,
+      keyMatches,
+      teamScenarios
+    };
+  } catch (error) {
+    console.error(`Error generating comprehensive analysis for ${sport}:`, error);
+    return {
+      error: `Failed to generate analysis: ${error.message}`,
+      sport
+    };
+  }
+}
+
+// Convenience functions for specific sports
+async function getMensTennisAnalysis() {
+  return generateComprehensiveAnalysis('mens-tennis');
+}
+
+async function getWomensTennisAnalysis() {
+  return generateComprehensiveAnalysis('womens-tennis');
 }
 
 module.exports = {
@@ -507,5 +762,7 @@ module.exports = {
   identifyKeyMatches,
   getCurrentStandings,
   getRemainingMatches,
-  getHeadToHead
+  getHeadToHead,
+  getMensTennisAnalysis,
+  getWomensTennisAnalysis
 }; 

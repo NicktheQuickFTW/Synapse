@@ -33,7 +33,7 @@ router.post('/matches/:id/result', async (req, res) => {
     await knex('tennis_standings').update({
       wins: 0,
       losses: 0,
-      win_pct: 0
+      win_percent: 0
     });
 
     // Calculate new standings
@@ -57,13 +57,13 @@ router.post('/matches/:id/result', async (req, res) => {
 
     // Update standings
     for (const [team, record] of Object.entries(standings)) {
-      const winPct = record.wins / (record.wins + record.losses);
+      const winPercent = record.wins / (record.wins + record.losses);
       await knex('tennis_standings')
         .where({ team_name: team })
         .update({
           wins: record.wins,
           losses: record.losses,
-          win_pct: winPct
+          win_percent: winPercent
         });
     }
 
