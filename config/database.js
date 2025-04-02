@@ -10,7 +10,9 @@ module.exports = {
       database: process.env.DB_NAME || 'xii_os_development',
       user: process.env.DB_USER || 'postgres',
       password: process.env.DB_PASSWORD || 'postgres',
-      ssl: process.env.DB_SSL === 'true',
+      ssl: {
+        rejectUnauthorized: false
+      },
       port: process.env.DB_PORT || 5432,
       connectionTimeoutMillis: 10000,
       statement_timeout: 30000

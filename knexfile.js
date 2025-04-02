@@ -10,7 +10,9 @@ module.exports = {
       database: process.env.DB_NAME || 'xii_os_dev',
       user: process.env.DB_USER || 'postgres',
       password: process.env.DB_PASSWORD || 'postgres',
-      ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
+      ssl: {
+        rejectUnauthorized: false
+      },
       connectionTimeout: 10000, // 10 seconds
       acquireConnectionTimeout: 10000 // 10 seconds
     },
@@ -41,7 +43,9 @@ module.exports = {
       database: process.env.TEST_DB_NAME || 'xii_os_test',
       user: process.env.DB_USER || 'postgres',
       password: process.env.DB_PASSWORD || 'postgres',
-      ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
+      ssl: {
+        rejectUnauthorized: false
+      },
       connectionTimeout: 10000,
       acquireConnectionTimeout: 10000
     },
@@ -72,7 +76,9 @@ module.exports = {
       database: process.env.DB_NAME,
       user: process.env.DB_USER,
       password: process.env.DB_PASSWORD,
-      ssl: { rejectUnauthorized: false },
+      ssl: {
+        rejectUnauthorized: false
+      },
       connectionTimeout: 10000,
       acquireConnectionTimeout: 10000
     },
