@@ -59,14 +59,17 @@ class NotionService {
   /**
    * Query a database
    * @param {string} databaseId - Notion database ID
-   * @param {Object} filter - Optional filter criteria
+   * @param {Object} options - Query options including filter criteria and page size
    * @returns {Promise<Array>} Database query results
    */
-  async queryDatabase(databaseId, filter = {}) {
+  async queryDatabase(databaseId, options = {}) {
     try {
       const response = await this.notion.databases.query({
         database_id: databaseId,
-        filter: filter
+        page_size: options.page_size || 100,
+        filter: {
+          and: []  // Empty filter to match all records
+        }
       });
       logger.info(`Retrieved ${response.results.length} records from database ${databaseId}`);
       return response.results;
