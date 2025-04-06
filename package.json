@@ -1,7 +1,7 @@
 {
-  "name": "xii-os",
+  "name": "synapse",
   "version": "1.0.0",
-  "description": "XII OS - Transfer Portal Dashboard Monorepo",
+  "description": "Core repository for XII-OS, containing the Synapse integration layer and all component modules",
   "private": true,
   "workspaces": [
     "client",
@@ -50,5 +50,9 @@
   },
   "exports": {
     "./sports": "./src/sports/index.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/NicktheQuickFTW/Synapse.git"
   }
 }
