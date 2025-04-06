@@ -31,12 +31,31 @@ Thumbs.db
 *.sqlite
 *.db
 *.duckdb
+*.duckdb.wal
 
 # Temporary files
 *.tmp
 *.temp
 temp/
 tmp/
+output/
+debug-*.png
+git-sync.log
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+.env/
+
+# Documentation and planning
+*-migration-plan.md
+*-system-prompt.md
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
 
 # Node dependencies
 node_modules/
@@ -48,15 +67,6 @@ client/.vite/
 dist/
 build/
 
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-.env
-.venv
-venv/
-ENV/
-
 # IDE files
 .idea/
 .vscode/
@@ -65,10 +75,13 @@ ENV/
 
 # OS files
 .DS_Store
-Thumbs.db
+.AppleDouble
+.LSOverride
+Icon
+._*
 
 # Logs
-logs
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -81,13 +94,21 @@ yarn-error.log*
 .env.test.local
 .env.production.local
 
-# macOS system files
-.DS_Store
-.AppleDouble
-.LSOverride
-Icon
-._*
-
 # Temporary database files
 *.duckdb
-*.duckdb.wal 
+*.duckdb.wal
+
+# Documentation crawl data
+pydantic_ai_docs/
+crawled_docs/
+
+# Duplicate repositories (now in modules/)
+archon/
+awesome-llm-apps/
+modelcontextprotocol/
+xii-agents/
+xii-flextime/
+xii-os-core-db/
+xii-os-supabase-db/
+xii-core-db/
+synapse/ 
