@@ -59,7 +59,7 @@
       },
       "auth": {
         "type": "bearer",
-        "token": "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"
+        "token": "your_anthropic_api_key"
       }
     }
   }
