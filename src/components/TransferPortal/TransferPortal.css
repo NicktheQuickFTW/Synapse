@@ -1,0 +1,195 @@
+.transfer-portal {
+  padding: 2rem;
+  background-color: #f8f9fa;
+  min-height: 100vh;
+}
+
+.stats-overview {
+  margin-bottom: 2rem;
+}
+
+.stat-card {
+  background-color: white;
+  border-radius: 8px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease-in-out;
+}
+
+.stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.search-filters {
+  background-color: white;
+  border-radius: 8px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-bottom: 2rem;
+}
+
+.transfers-table {
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.transfers-table .MuiTableCell-head {
+  background-color: #f8f9fa;
+  font-weight: 600;
+}
+
+.transfers-table .MuiTableRow-root:hover {
+  background-color: #f8f9fa;
+}
+
+.status-chip {
+  border-radius: 16px;
+  padding: 4px 12px;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.status-chip.available {
+  background-color: #4caf50;
+  color: white;
+}
+
+.status-chip.committed {
+  background-color: #2196f3;
+  color: white;
+}
+
+.status-chip.withdrawn {
+  background-color: #f44336;
+  color: white;
+}
+
+/* Responsive adjustments */
+@media (max-width: 960px) {
+  .transfer-portal {
+    padding: 1rem;
+  }
+
+  .search-filters {
+    padding: 1rem;
+  }
+
+  .transfers-table {
+    overflow-x: auto;
+  }
+
+  .stat-card {
+    padding: 1rem;
+  }
+}
+
+/* Chart customizations */
+.recharts-wrapper {
+  margin: 0 auto;
+}
+
+.recharts-tooltip-wrapper {
+  background-color: white;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 8px;
+}
+
+/* Dialog customizations */
+.MuiDialog-paper {
+  border-radius: 12px !important;
+}
+
+.transfer-details-dialog .MuiDialogTitle-root {
+  background-color: #f8f9fa;
+  padding: 1.5rem;
+}
+
+.transfer-details-dialog .MuiDialogContent-root {
+  padding: 2rem;
+}
+
+/* Button customizations */
+.MuiButton-outlined {
+  text-transform: none !important;
+  border-radius: 8px !important;
+}
+
+.MuiButton-contained {
+  text-transform: none !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+}
+
+/* Form control customizations */
+.MuiFormControl-root {
+  width: 100%;
+}
+
+.MuiOutlinedInput-root {
+  border-radius: 8px !important;
+}
+
+/* Loading state */
+.loading-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+}
+
+/* Error state */
+.error-container {
+  padding: 2rem;
+  text-align: center;
+  color: #f44336;
+}
+
+/* Empty state */
+.empty-state {
+  padding: 4rem 2rem;
+  text-align: center;
+  color: #666;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.transfer-portal {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.stat-card {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #666;
+} 

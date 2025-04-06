@@ -1,0 +1,9 @@
+{
+  "name": "module-template",
+  "version": "1.0.0",
+  "description": "Template for XII-OS modules",
+  "settings": {
+    "apiKey": "",
+    "endpoint": ""
+  }
+} 

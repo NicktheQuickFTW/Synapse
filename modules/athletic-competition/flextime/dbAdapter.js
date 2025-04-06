@@ -1,5 +1,5 @@
 /**
- * FlexTime Scheduling Engine - Database Adapter
+ * FlexTime Engine - Database Adapter
  * 
  * Handles database integration for schedule management using PostgreSQL
  */
@@ -40,7 +40,7 @@ exports.saveSchedule = async (schedule, name) => {
     // Create transaction to ensure all operations succeed or fail together
     const result = await knex.transaction(async (trx) => {
       // 1. Create schedule record
-      const [scheduleId] = await trx('schedules').insert({
+      const [scheduleId] = await trx('flextime_schedules').insert({
         name: name || `${schedule.sport} ${new Date().toISOString().split('T')[0]}`,
         sport: schedule.sport,
         season_start: schedule.seasonStart,
@@ -72,7 +72,7 @@ exports.saveSchedule = async (schedule, name) => {
       });
       
       if (matchups.length > 0) {
-        await trx('schedule_matchups').insert(matchups);
+        await trx('flextime_matchups').insert(matchups);
       }
       
       return {
@@ -108,7 +108,7 @@ exports.loadSchedule = async (scheduleId) => {
   
   try {
     // Get schedule record
-    const scheduleRecord = await knex('schedules')
+    const scheduleRecord = await knex('flextime_schedules')
       .where('id', scheduleId)
       .first();
     
@@ -117,7 +117,7 @@ exports.loadSchedule = async (scheduleId) => {
     }
     
     // Get all matchups
-    const matchupRecords = await knex('schedule_matchups')
+    const matchupRecords = await knex('flextime_matchups')
       .where('schedule_id', scheduleId)
       .orderBy(['week', 'game_date']);
     
@@ -218,7 +218,7 @@ exports.saveConfiguration = async (config, name) => {
     // Create transaction to ensure all operations succeed or fail together
     const result = await knex.transaction(async (trx) => {
       // 1. Create configuration record
-      const [configId] = await trx('schedule_configurations').insert({
+      const [configId] = await trx('flextime_configurations').insert({
         name: name || `${config.sport} Configuration ${new Date().toISOString().split('T')[0]}`,
         sport: config.sport,
         season_start: config.seasonStart,
@@ -245,7 +245,7 @@ exports.saveConfiguration = async (config, name) => {
       }));
       
       if (teams.length > 0) {
-        await trx('config_teams').insert(teams);
+        await trx('flextime_teams').insert(teams);
       }
       
       // 3. Save constraints
@@ -261,7 +261,7 @@ exports.saveConfiguration = async (config, name) => {
           created_at: new Date()
         }));
         
-        await trx('config_constraints').insert(constraints);
+        await trx('flextime_constraints').insert(constraints);
       }
       
       return {
@@ -297,7 +297,7 @@ exports.loadConfiguration = async (configId) => {
   
   try {
     // Get configuration record
-    const configRecord = await knex('schedule_configurations')
+    const configRecord = await knex('flextime_configurations')
       .where('id', configId)
       .first();
     
@@ -319,11 +319,11 @@ exports.loadConfiguration = async (configId) => {
     
     // Otherwise, rebuild configuration from related tables
     // Get teams
-    const teamRecords = await knex('config_teams')
+    const teamRecords = await knex('flextime_teams')
       .where('config_id', configId);
     
     // Get constraints
-    const constraintRecords = await knex('config_constraints')
+    const constraintRecords = await knex('flextime_constraints')
       .where('config_id', configId);
     
     // Convert database records to configuration format
@@ -395,7 +395,7 @@ exports.listSchedules = async (filters = {}) => {
   logger.info('Listing schedules from database', { filters });
   
   try {
-    let query = knex('schedules').select('*');
+    let query = knex('flextime_schedules').select('*');
     
     // Apply filters
     if (filters.sport) {
@@ -435,7 +435,7 @@ exports.listConfigurations = async (filters = {}) => {
   logger.info('Listing configurations from database', { filters });
   
   try {
-    let query = knex('schedule_configurations').select('*');
+    let query = knex('flextime_configurations').select('*');
     
     // Apply filters
     if (filters.sport) {

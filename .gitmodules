@@ -1,0 +1,9 @@
+[submodule "archon"]
+	path = archon
+	url = https://github.com/coleam00/Archon.git
+[submodule "awesome-llm-apps"]
+	path = awesome-llm-apps
+	url = https://github.com/Shubhamsaboo/awesome-llm-apps.git
+[submodule "modelcontextprotocol"]
+	path = modelcontextprotocol
+	url = git@github.com:ppl-ai/modelcontextprotocol.git

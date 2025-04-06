@@ -40,6 +40,15 @@
             "analysis": "string",
             "model": "string"
           }
+        },
+        "runDuckDbQuery": {
+          "description": "Run a DuckDB query",
+          "parameters": {
+            "query": "string"
+          },
+          "returns": {
+            "result": "string"
+          }
         }
       },
       "prompts": {

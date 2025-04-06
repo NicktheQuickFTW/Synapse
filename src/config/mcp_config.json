@@ -1,0 +1,9 @@
+{
+  "mcp_servers": [
+    {
+      "name": "basketball_transfer_portal",
+      "transport": "http",
+      "url": "http://localhost:3000"
+    }
+  ]
+} 

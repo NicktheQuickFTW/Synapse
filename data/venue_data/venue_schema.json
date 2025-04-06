@@ -1,0 +1,128 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Big 12 Venue Data",
+  "description": "Structured data for athletic facilities across all Big 12 schools",
+  "type": "object",
+  "required": ["schools"],
+  "properties": {
+    "schools": {
+      "type": "object",
+      "patternProperties": {
+        "^[a-z_]+$": {
+          "type": "object",
+          "required": ["name", "venues"],
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Full name of the school"
+            },
+            "venues": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["name", "sports", "priority_order", "location"],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "Name of the venue"
+                  },
+                  "sports": {
+                    "type": "array",
+                    "description": "Sports that use this venue",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "mbasketball", "wbasketball", "football", "baseball",
+                        "softball", "mtennis", "wtennis", "volleyball", 
+                        "soccer", "wrestling", "gymnastics", "lacrosse",
+                        "track", "swimming", "golf"
+                      ]
+                    }
+                  },
+                  "priority_order": {
+                    "type": "array",
+                    "description": "Order of sports priority for scheduling in this venue",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "location": {
+                    "type": "object",
+                    "properties": {
+                      "address": {
+                        "type": "string",
+                        "description": "Street address of the venue"
+                      },
+                      "lat": {
+                        "type": "number",
+                        "description": "Latitude coordinates"
+                      },
+                      "lng": {
+                        "type": "number",
+                        "description": "Longitude coordinates"
+                      },
+                      "on_campus": {
+                        "type": "boolean",
+                        "description": "Whether the venue is on campus"
+                      }
+                    }
+                  },
+                  "capacity": {
+                    "type": "integer",
+                    "description": "Seating capacity of the venue"
+                  },
+                  "shared": {
+                    "type": "boolean",
+                    "description": "Whether the venue is shared among multiple sports",
+                    "default": true
+                  },
+                  "transition_times": {
+                    "type": "object",
+                    "description": "Hours needed to transition between sports",
+                    "patternProperties": {
+                      "^[a-z_]+_to_[a-z_]+$": {
+                        "type": "number",
+                        "description": "Hours needed for transition"
+                      }
+                    }
+                  },
+                  "availability": {
+                    "type": "object",
+                    "description": "Special availability constraints",
+                    "properties": {
+                      "seasonal_restrictions": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "start_date": { "type": "string", "format": "date" },
+                            "end_date": { "type": "string", "format": "date" },
+                            "reason": { "type": "string" }
+                          }
+                        }
+                      },
+                      "blackout_dates": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "date": { "type": "string", "format": "date" },
+                            "reason": { "type": "string" }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "notes": {
+                    "type": "string",
+                    "description": "Additional venue notes and considerations"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+} 

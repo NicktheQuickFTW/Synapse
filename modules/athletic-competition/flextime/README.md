@@ -1,6 +1,6 @@
-# FlexTime
+# FlexTime Engine
 
-FlexTime is a comprehensive solution for generating and optimizing athletic competition schedules for the Big 12 Conference. This system leverages cloud database storage and Claude AI to create optimized schedules that balance multiple competing factors.
+FlexTime Engine is a comprehensive solution for generating and optimizing athletic competition schedules for the Big 12 Conference. This system leverages cloud database storage and Claude AI to create optimized schedules that balance multiple competing factors.
 
 ## Key Features
 
@@ -77,4 +77,7 @@ node scripts/run-flextime.js [sport] [action] [outputPath]
 ```
 
 Available sports: basketball, football
-Available actions: generate, analyze, optimize 
+Available actions: generate, analyze, optimize
+
+## Context Priming
+> Read README.md, CLAUDE.md, ai_docs/*, and run git ls-files to understand this codebase. 

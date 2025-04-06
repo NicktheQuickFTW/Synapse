@@ -30,3 +30,6 @@ This directory contains the individual functional modules of the XII OS platform
 6. **Content Management System** - `/content-management`
    - Highlight generation
    - Content scheduling
+
+## Context Priming
+> Read README.md, CLAUDE.md, ai_docs/*, and run git ls-files to understand this codebase.

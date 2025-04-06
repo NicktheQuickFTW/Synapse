@@ -6,6 +6,7 @@
 
 const winston = require('winston');
 const claudeAI = require('../../claude-ai');
+const { AnthropicClient } = require('@anthropic-ai/sdk');
 
 // Initialize logger
 const logger = winston.createLogger({
@@ -67,50 +68,86 @@ exports.analyzeSchedule = async (schedule, metrics) => {
 };
 
 /**
- * Generate optimization parameters for a schedule using Claude
- * @param {Object} schedule - Schedule to optimize
- * @param {Object} config - Current configuration
- * @returns {Promise<Object>} Optimization parameters
+ * Generate optimization parameters using Claude AI
+ * @param {Object} schedule - Constrained schedule
+ * @param {Object} config - Configuration object
+ * @returns {Promise<Object>} Optimization suggestions from Claude
  */
 exports.generateOptimizationParameters = async (schedule, config) => {
-  logger.info('Generating optimization parameters with Claude AI');
+  logger.info('Generating optimization parameters with Claude AI', { sport: config.sport });
   
   try {
-    // Create simplified versions of schedule and config
-    const simplifiedSchedule = simplifyScheduleForAnalysis(schedule);
-    const simplifiedConfig = {
-      sport: config.sport,
-      seasonStart: config.seasonStart,
-      seasonEnd: config.seasonEnd,
-      format: config.competitionFormat,
-      currentOptimizationFactors: config.optimizationFactors || {}
-    };
+    // Initialize Anthropic client
+    const client = new AnthropicClient(process.env.ANTHROPIC_API_KEY);
     
-    // Construct prompt for Claude
-    const prompt = createOptimizationPrompt(simplifiedSchedule, simplifiedConfig);
+    // Build a prompt based on schedule and config
+    const prompt = buildOptimizationPrompt(schedule, config);
     
-    // Get response from Claude
-    const response = await claudeAI.getCompletion({
-      prompt,
-      max_tokens: 1500,
-      temperature: 0.1,
-      model: "claude-3-opus-20240229"
+    // Call Claude
+    const response = await client.messages.create({
+      model: process.env.ANTHROPIC_MODEL || 'claude-3-opus-20240229',
+      max_tokens: 4000,
+      messages: [{ role: 'user', content: prompt }],
+      system: CLAUDE_SYSTEM_PROMPT,
+      temperature: 0.2
     });
     
-    // Parse and extract optimization parameters
-    const parameters = parseOptimizationResponse(response);
-    
-    logger.info('Optimization parameters generated', {
-      factorCount: Object.keys(parameters.optimizationFactors).length
-    });
+    // Parse and process Claude's response
+    const parameters = processClaudeResponse(response.content);
     
     return {
       success: true,
       parameters
     };
-    
   } catch (error) {
-    logger.error('Error generating optimization parameters', { error: error.message });
+    logger.error('Error generating optimization parameters with Claude AI', { error });
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+};
+
+/**
+ * Generate clustering analysis using Claude AI
+ * @param {Array} clusters - Team clusters
+ * @param {Object} config - Configuration object
+ * @returns {Promise<Object>} Clustering analysis from Claude
+ */
+exports.generateClusteringAnalysis = async (clusters, config) => {
+  logger.info('Generating clustering analysis with Claude AI', { 
+    sport: config.sport,
+    clusterCount: clusters.length
+  });
+  
+  try {
+    // Initialize Anthropic client
+    const client = new AnthropicClient(process.env.ANTHROPIC_API_KEY);
+    
+    // Build a prompt for clustering analysis
+    const prompt = buildClusteringAnalysisPrompt(clusters, config);
+    
+    // Call Claude
+    const response = await client.messages.create({
+      model: process.env.ANTHROPIC_MODEL || 'claude-3-opus-20240229',
+      max_tokens: 4000,
+      messages: [{ role: 'user', content: prompt }],
+      system: CLAUDE_SYSTEM_PROMPT,
+      temperature: 0.2
+    });
+    
+    // Process Claude's response
+    const analysis = {
+      text: response.content[0].text,
+      recommendations: extractClusteringRecommendations(response.content[0].text)
+    };
+    
+    return {
+      success: true,
+      analysis
+    };
+  } catch (error) {
+    logger.error('Error generating clustering analysis with Claude AI', { error });
     return {
       success: false,
       error: error.message
@@ -327,6 +364,121 @@ function parseClaudeResponse(response) {
       potentialConflicts: []
     };
   }
+}
+
+/**
+ * Build prompt for cluster analysis
+ * @param {Array} clusters - Team clusters
+ * @param {Object} config - Configuration object
+ * @returns {string} Prompt for Claude
+ */
+function buildClusteringAnalysisPrompt(clusters, config) {
+  // Format clusters for prompt
+  const clusterDescriptions = clusters.map((cluster, index) => {
+    const teamNames = cluster.map(team => team.name).join(', ');
+    return `Cluster ${index + 1}: ${teamNames}`;
+  }).join('\n');
+  
+  return `
+# FlexTime Clustering Analysis Request
+
+## Sport Details
+- Sport: ${config.sport}
+- Season: ${config.seasonStart.toISOString().split('T')[0]} to ${config.seasonEnd.toISOString().split('T')[0]}
+- Conference: ${config.conference || 'Big 12'}
+- Teams: ${config.teams.length}
+
+## Current Clustering Configuration
+${clusterDescriptions}
+
+## Clustering Balance
+- Travel Efficiency Weight: ${config.optimizationFactors?.travelEfficiency || 1.0}
+- TV Revenue Weight: ${config.optimizationFactors?.tvRevenue || 1.0}
+- Competitive Balance Weight: ${config.optimizationFactors?.competitiveBalance || 1.0}
+
+## Special Considerations
+${getSpecialConsiderationsText(config)}
+
+## Requested Analysis
+1. Analyze the effectiveness of the proposed clusters
+2. Identify potential improvements to the clustering
+3. Calculate the approximate travel savings
+4. Suggest any adjustments to the cluster composition
+5. Evaluate the impact on competition balance and TV opportunities
+6. Provide concrete recommendations for optimizing the clusters
+
+Please provide your analysis in a structured format with clear recommendations.
+`;
+}
+
+/**
+ * Get text for special considerations
+ * @param {Object} config - Configuration object
+ * @returns {string} Special considerations text
+ */
+function getSpecialConsiderationsText(config) {
+  let text = '';
+  
+  // Add religious policies
+  const religiousConstraints = config.constraints?.filter(c => 
+    c.type === 'no_sunday_competition' || c.type === 'religious_policy'
+  );
+  
+  if (religiousConstraints && religiousConstraints.length > 0) {
+    text += '- Religious policies: ' + religiousConstraints.map(c => 
+      `${c.teamId} (${c.description || 'No Sunday play'})`
+    ).join(', ') + '\n';
+  }
+  
+  // Add venue sharing
+  const venueConstraints = config.constraints?.filter(c => c.type === 'venue_sharing');
+  
+  if (venueConstraints && venueConstraints.length > 0) {
+    text += '- Venue sharing: ' + venueConstraints.map(c => 
+      `${c.team1Id} and ${c.team2Id} (${c.venue || 'shared venue'})`
+    ).join(', ') + '\n';
+  }
+  
+  // Add high travel teams
+  const highTravelTeams = ['west-virginia', 'byu']; // Example high-travel teams
+  const configTeamIds = config.teams.map(t => t.id);
+  const relevantHighTravelTeams = highTravelTeams.filter(id => configTeamIds.includes(id));
+  
+  if (relevantHighTravelTeams.length > 0) {
+    text += '- High travel cost teams: ' + relevantHighTravelTeams.join(', ') + '\n';
+  }
+  
+  return text || 'No special considerations specified.';
+}
+
+/**
+ * Extract clustering recommendations from Claude response
+ * @param {string} text - Claude response text
+ * @returns {Array} List of recommendations
+ */
+function extractClusteringRecommendations(text) {
+  // Look for a recommendations section
+  const recommendationsMatch = text.match(/(?:recommendations|suggested improvements)[\s\S]*?(?=\n\n|$)/i);
+  
+  if (recommendationsMatch) {
+    // Extract bullet points
+    const recommendationsText = recommendationsMatch[0];
+    const bulletPoints = recommendationsText.match(/[-*]\s+(.+?)(?=\n|$)/g);
+    
+    if (bulletPoints) {
+      return bulletPoints.map(point => point.replace(/^[-*]\s+/, '').trim());
+    }
+  }
+  
+  // Fallback: try to find any numbered list
+  const numberedListMatch = text.match(/\d+\.\s+(.+?)(?=\n\d+\.|$)/g);
+  
+  if (numberedListMatch) {
+    return numberedListMatch.map(point => point.replace(/^\d+\.\s+/, '').trim());
+  }
+  
+  // If nothing found, return empty array
+  return [];
 }
 
 /**

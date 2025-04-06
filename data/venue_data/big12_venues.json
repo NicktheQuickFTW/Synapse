@@ -1,0 +1,238 @@
+{
+  "schools": {
+    "arizona_state": {
+      "name": "Arizona State University",
+      "venues": [
+        {
+          "name": "Desert Financial Arena",
+          "sports": ["mbasketball", "wbasketball", "volleyball", "wrestling", "gymnastics"],
+          "priority_order": ["mbasketball", "wbasketball", "gymnastics", "wrestling", "volleyball"],
+          "location": {
+            "address": "600 E Veterans Way, Tempe, AZ 85281",
+            "lat": 33.4245,
+            "lng": -111.9324,
+            "on_campus": true
+          },
+          "capacity": 14000,
+          "shared": true,
+          "transition_times": {
+            "basketball_to_volleyball": 2,
+            "basketball_to_wrestling": 3,
+            "basketball_to_gymnastics": 4,
+            "volleyball_to_basketball": 2,
+            "volleyball_to_wrestling": 3,
+            "wrestling_to_basketball": 3,
+            "wrestling_to_volleyball": 3,
+            "gymnastics_to_basketball": 4
+          },
+          "availability": {
+            "seasonal_restrictions": [],
+            "blackout_dates": []
+          },
+          "notes": "Complex setup for gymnastics requires additional time"
+        },
+        {
+          "name": "Whiteman Tennis Center",
+          "sports": ["mtennis", "wtennis"],
+          "priority_order": ["mtennis", "wtennis"],
+          "location": {
+            "address": "600 S McAllister Ave, Tempe, AZ 85281",
+            "lat": 33.4198,
+            "lng": -111.9346,
+            "on_campus": true
+          },
+          "capacity": 500,
+          "shared": true,
+          "transition_times": {
+            "mtennis_to_wtennis": 1,
+            "wtennis_to_mtennis": 1
+          },
+          "availability": {
+            "seasonal_restrictions": [],
+            "blackout_dates": []
+          },
+          "notes": "Typically scheduled on different days but can be used same day"
+        },
+        {
+          "name": "Mountain America Stadium",
+          "sports": ["football"],
+          "priority_order": ["football"],
+          "location": {
+            "address": "500 E Veterans Way, Tempe, AZ 85281",
+            "lat": 33.4268,
+            "lng": -111.9329,
+            "on_campus": true
+          },
+          "capacity": 53599,
+          "shared": false,
+          "transition_times": {},
+          "availability": {
+            "seasonal_restrictions": [],
+            "blackout_dates": []
+          },
+          "notes": "Formerly known as Sun Devil Stadium"
+        }
+      ]
+    },
+    "iowa_state": {
+      "name": "Iowa State University",
+      "venues": [
+        {
+          "name": "Hilton Coliseum",
+          "sports": ["mbasketball", "wbasketball", "volleyball", "gymnastics", "wrestling"],
+          "priority_order": ["mbasketball", "wbasketball", "wrestling", "gymnastics", "volleyball"],
+          "location": {
+            "address": "1700 Center Dr, Ames, IA 50011",
+            "lat": 42.0266,
+            "lng": -93.6350,
+            "on_campus": true
+          },
+          "capacity": 14384,
+          "shared": true,
+          "transition_times": {
+            "basketball_to_volleyball": 2,
+            "basketball_to_wrestling": 3,
+            "basketball_to_gymnastics": 4,
+            "volleyball_to_basketball": 2,
+            "volleyball_to_wrestling": 3,
+            "wrestling_to_basketball": 3,
+            "wrestling_to_volleyball": 3,
+            "gymnastics_to_basketball": 4
+          },
+          "availability": {
+            "seasonal_restrictions": [],
+            "blackout_dates": []
+          },
+          "notes": "Wrestling and gymnastics never scheduled on same day"
+        },
+        {
+          "name": "Forker Tennis Courts",
+          "sports": ["mtennis", "wtennis"],
+          "priority_order": ["wtennis", "mtennis"],
+          "location": {
+            "address": "Forker Building, Ames, IA 50011",
+            "lat": 42.0260,
+            "lng": -93.6491,
+            "on_campus": true
+          },
+          "capacity": 300,
+          "shared": true,
+          "transition_times": {
+            "mtennis_to_wtennis": 1,
+            "wtennis_to_mtennis": 1
+          },
+          "availability": {
+            "seasonal_restrictions": [
+              {
+                "start_date": "2023-11-15",
+                "end_date": "2024-03-15",
+                "reason": "Weather limitations for outdoor courts"
+              }
+            ],
+            "blackout_dates": []
+          },
+          "notes": "Indoor courts have limited availability in winter months"
+        },
+        {
+          "name": "Jack Trice Stadium",
+          "sports": ["football"],
+          "priority_order": ["football"],
+          "location": {
+            "address": "1732 S 4th St, Ames, IA 50011",
+            "lat": 42.0136,
+            "lng": -93.6356,
+            "on_campus": true
+          },
+          "capacity": 61500,
+          "shared": false,
+          "transition_times": {},
+          "availability": {
+            "seasonal_restrictions": [],
+            "blackout_dates": []
+          },
+          "notes": "Main football stadium"
+        }
+      ]
+    },
+    "west_virginia": {
+      "name": "West Virginia University",
+      "venues": [
+        {
+          "name": "WVU Coliseum",
+          "sports": ["mbasketball", "wbasketball", "volleyball", "wrestling", "gymnastics"],
+          "priority_order": ["mbasketball", "wbasketball", "wrestling", "gymnastics", "volleyball"],
+          "location": {
+            "address": "3450 Mountaineer Dr, Morgantown, WV 26505",
+            "lat": 39.6486,
+            "lng": -79.9816,
+            "on_campus": true
+          },
+          "capacity": 14000,
+          "shared": true,
+          "transition_times": {
+            "basketball_to_volleyball": 2,
+            "basketball_to_wrestling": 3,
+            "basketball_to_gymnastics": 4,
+            "volleyball_to_basketball": 2,
+            "volleyball_to_wrestling": 3,
+            "wrestling_to_basketball": 3,
+            "wrestling_to_volleyball": 3,
+            "gymnastics_to_basketball": 4
+          },
+          "availability": {
+            "seasonal_restrictions": [],
+            "blackout_dates": []
+          },
+          "notes": "Particularly difficult to schedule gymnastics with other sports"
+        },
+        {
+          "name": "Mountaineer Tennis Courts",
+          "sports": ["mtennis", "wtennis"],
+          "priority_order": ["mtennis", "wtennis"],
+          "location": {
+            "address": "1115 University Ave, Morgantown, WV 26505",
+            "lat": 39.6463,
+            "lng": -79.9601,
+            "on_campus": true
+          },
+          "capacity": 400,
+          "shared": true,
+          "transition_times": {
+            "mtennis_to_wtennis": 1,
+            "wtennis_to_mtennis": 1
+          },
+          "availability": {
+            "seasonal_restrictions": [
+              {
+                "start_date": "2023-11-01",
+                "end_date": "2024-03-31",
+                "reason": "Weather limitations for outdoor courts"
+              }
+            ],
+            "blackout_dates": []
+          },
+          "notes": "Outdoor courts dependent on weather conditions"
+        },
+        {
+          "name": "Mountaineer Field at Milan Puskar Stadium",
+          "sports": ["football"],
+          "priority_order": ["football"],
+          "location": {
+            "address": "1 Ira Errett Rodgers Dr, Morgantown, WV 26506",
+            "lat": 39.6493,
+            "lng": -79.9539,
+            "on_campus": true
+          },
+          "capacity": 60000,
+          "shared": false,
+          "transition_times": {},
+          "availability": {
+            "seasonal_restrictions": [],
+            "blackout_dates": []
+          },
+          "notes": "Main football stadium"
+        }
+      ]
+    }
+  }
+} 

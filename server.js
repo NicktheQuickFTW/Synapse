@@ -5,17 +5,9 @@
 
 // Global error handlers
 process.on('uncaughtException', (err) => {
-  console.error('\n[UNCAUGHT EXCEPTION] Server kept alive:');
+  console.error('[UNCAUGHT EXCEPTION] Server kept alive:');
   console.error(err);
-  console.error('\n');
-  // Keep running despite error
-  
-  // If this is a port in use error, modify the app.js port
-  if (err.code === 'EADDRINUSE') {
-    console.log('Port 3000 is in use, let\'s use a different port');
-    process.env.PORT = '3001';
-    console.log(`Using port ${process.env.PORT} instead`);
-  }
+  // No port fallback logic here
 });
 
 process.on('unhandledRejection', (reason, promise) => {
@@ -37,4 +29,14 @@ setInterval(() => {
 
 // Import and run the app
 console.log('Starting application with error handling...');
-require('./app.js'); 
+
+// Import your app
+const app = require('./app');
+
+// Explicitly use port 3001
+const PORT = 3001;
+
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+  console.log(`Access the app at http://localhost:${PORT}`);
+}); 

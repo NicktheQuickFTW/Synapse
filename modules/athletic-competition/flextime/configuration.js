@@ -78,8 +78,47 @@ exports.createConfig = (params) => {
     
     // Advanced options
     simulatedAnnealingIterations: params.simulatedAnnealingIterations || 1000,
-    seedValue: params.seedValue || Math.floor(Math.random() * 1000000)
+    seedValue: params.seedValue || Math.floor(Math.random() * 1000000),
+    useClaudeAI: params.useClaudeAI || false,
+    useMCP: params.useMCP || false,
+    saveToDatabase: params.saveToDatabase || false,
+    scheduleName: params.scheduleName || `${params.sport}-schedule-${new Date().toISOString().slice(0,10)}`
   };
+  
+  // Add geographic clustering options
+  config.useGeographicClustering = params.useGeographicClustering !== false; // Default to true
+  
+  // Advanced clustering options
+  if (params.clusteringOptions) {
+    config.clusteringOptions = {
+      clusterRadius: params.clusteringOptions.clusterRadius,
+      minClusterSize: params.clusteringOptions.minClusterSize || 2,
+      maxClusterSize: params.clusteringOptions.maxClusterSize || 4,
+      preferredPartners: params.clusteringOptions.preferredPartners !== false, // Default to true
+      balanceCompetitiveStrength: params.clusteringOptions.balanceCompetitiveStrength !== false, // Default to true
+      allowStrategicOutliers: params.clusteringOptions.allowStrategicOutliers || false
+    };
+  }
+  
+  // Handle sport-specific configuration
+  switch (params.sport.toLowerCase()) {
+    case 'basketball':
+      addBasketballConfig(config, params);
+      break;
+    case 'football':
+      addFootballConfig(config, params);
+      break;
+    case 'baseball':
+      addBaseballConfig(config, params);
+      break;
+    case 'volleyball':
+      addVolleyballConfig(config, params);
+      break;
+    // ... other sports
+  }
+  
+  // Validate configuration
+  validateConfig(config);
   
   logger.info('Configuration created successfully', { 
     sport: config.sport,
@@ -202,4 +241,86 @@ exports.validateConfig = (config) => {
     valid: errors.length === 0,
     errors: errors
   };
-}; 
+};
+
+/**
+ * Add basketball specific configuration
+ * @param {Object} config - Configuration object to modify
+ * @param {Object} params - Parameters from user
+ */
+function addBasketballConfig(config, params) {
+  // Protected rivalries (special matchups that should be scheduled)
+  config.protectedRivalries = params.protectedRivalries || [
+    // Default Big 12 basketball rivalries
+    { team1: 'kansas', team2: 'kansas-state', name: 'Sunflower Showdown' },
+    { team1: 'arizona', team2: 'arizona-state', name: 'Territorial Cup' },
+    { team1: 'baylor', team2: 'tcu', name: 'Revivalry' }
+  ];
+  
+  // Special clustering configurations for basketball
+  if (config.useGeographicClustering) {
+    // Default to Mountain Time Zone cluster for basketball
+    if (!config.clusteringOptions) {
+      config.clusteringOptions = {};
+    }
+    
+    // Pre-defined clusters for basketball
+    config.clusteringOptions.predefinedClusters = params.predefinedClusters || [
+      // Mountain cluster (BYU, Utah, Colorado, Arizona schools)
+      { 
+        name: 'Mountain Cluster',
+        teamIds: ['byu', 'utah', 'colorado', 'arizona', 'arizona-state']
+      },
+      // Texas cluster
+      {
+        name: 'Texas Cluster',
+        teamIds: ['baylor', 'tcu', 'texas-tech', 'houston']
+      },
+      // Eastern cluster
+      {
+        name: 'Eastern Cluster',
+        teamIds: ['west-virginia', 'cincinnati', 'ucf']
+      },
+      // Plains cluster
+      {
+        name: 'Plains Cluster',
+        teamIds: ['kansas', 'kansas-state', 'iowa-state', 'oklahoma-state']
+      }
+    ];
+  }
+}
+
+// ... other sport-specific config functions ...
+
+/**
+ * Get the clustering weight balance for a specific sport
+ * @param {string} sport - Sport name
+ * @returns {Object} Clustering weight balance
+ */
+function getClusteringWeightBalance(sport) {
+  // Default balance of clustering vs other factors (from FlexTime documentation)
+  const weightBalances = {
+    'basketball': {
+      clusterEfficiency: 0.68,
+      tvRevenue: 0.22,
+      competitiveBalance: 0.10
+    },
+    'football': {
+      clusterEfficiency: 0.35,
+      tvRevenue: 0.55,
+      competitiveBalance: 0.10
+    },
+    'baseball': {
+      clusterEfficiency: 0.80,
+      tvRevenue: 0.10,
+      competitiveBalance: 0.10
+    },
+    'volleyball': {
+      clusterEfficiency: 0.70,
+      tvRevenue: 0.15,
+      competitiveBalance: 0.15
+    }
+  };
+  
+  return weightBalances[sport.toLowerCase()] || weightBalances['basketball'];
+} 

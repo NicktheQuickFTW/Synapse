@@ -5,6 +5,9 @@
  */
 
 const winston = require('winston');
+const logger = require('../../../shared/utils/logger');
+const distanceMatrixService = require('../services/distanceMatrixService');
+const clustering = require('./clustering');
 
 // Initialize logger
 const logger = winston.createLogger({
@@ -30,13 +33,20 @@ const logger = winston.createLogger({
 exports.optimizeSchedule = (schedule, config) => {
   logger.info('Starting schedule optimization', { sport: config.sport });
   
+  // Apply geographic clustering first if enabled
+  let optimizedSchedule = schedule;
+  
+  if (config.useGeographicClustering) {
+    optimizedSchedule = applyGeographicClustering(schedule, config);
+  }
+  
   // Setup optimization parameters
   const iterations = config.simulatedAnnealingIterations || 1000;
   const initialTemperature = 100;
   const coolingRate = 0.95;
   
   // Copy the schedule for optimization
-  let currentSchedule = deepCopy(schedule);
+  let currentSchedule = deepCopy(optimizedSchedule);
   
   // Calculate initial score
   let currentScore = calculateScheduleScore(currentSchedule, config);
@@ -161,9 +171,9 @@ function calculateScheduleScore(schedule, config) {
  * Calculate travel efficiency score
  * @param {Object} schedule - Schedule to evaluate
  * @param {Object} config - Configuration object
- * @returns {number} Score (higher is better)
+ * @returns {Promise<number>} Score (higher is better)
  */
-function calculateTravelEfficiency(schedule, config) {
+async function calculateTravelEfficiency(schedule, config) {
   // Simplified model using estimated travel distances
   // In a real implementation, this would use actual distances and travel logistics
   
@@ -229,35 +239,52 @@ function calculateTravelEfficiency(schedule, config) {
   });
   
   // Calculate travel distances for each team's sequence
-  Object.entries(teamGameSequence).forEach(([teamId, games]) => {
-    if (games.length === 0 || !teamHomeBase[teamId]) return;
+  // Use Promise.all to handle multiple async operations
+  const distanceCalculations = [];
+  
+  for (const [teamId, games] of Object.entries(teamGameSequence)) {
+    if (games.length === 0 || !teamHomeBase[teamId]) continue;
     
     let currentLocation = teamHomeBase[teamId];
     
-    games.forEach(game => {
+    for (const game of games) {
       if (game.isAway) {
-        // Calculate distance to away game
-        const distance = calculateDistance(currentLocation, game.location);
-        teamTravelDistances[teamId] += distance;
-        
-        // Update current location
-        currentLocation = game.location;
+        // Calculate distance to away game - collect promises
+        distanceCalculations.push(
+          calculateDistance(currentLocation, game.location)
+            .then(distance => {
+              teamTravelDistances[teamId] += distance;
+              // Update current location
+              currentLocation = game.location;
+            })
+        );
       } else {
-        // For home games, return to home base
+        // For home games, return to home base if not already there
         if (JSON.stringify(currentLocation) !== JSON.stringify(teamHomeBase[teamId])) {
-          const distance = calculateDistance(currentLocation, teamHomeBase[teamId]);
-          teamTravelDistances[teamId] += distance;
-          currentLocation = teamHomeBase[teamId];
+          distanceCalculations.push(
+            calculateDistance(currentLocation, teamHomeBase[teamId])
+              .then(distance => {
+                teamTravelDistances[teamId] += distance;
+                currentLocation = teamHomeBase[teamId];
+              })
+          );
         }
       }
-    });
+    }
     
     // Return to home after final game if away
     if (games.length > 0 && games[games.length-1].isAway) {
-      const distance = calculateDistance(games[games.length-1].location, teamHomeBase[teamId]);
-      teamTravelDistances[teamId] += distance;
+      distanceCalculations.push(
+        calculateDistance(games[games.length-1].location, teamHomeBase[teamId])
+          .then(distance => {
+            teamTravelDistances[teamId] += distance;
+          })
+      );
     }
-  });
+  }
+  
+  // Wait for all distance calculations to complete
+  await Promise.all(distanceCalculations);
   
   // Calculate average travel distance
   let totalDistance = 0;
@@ -271,24 +298,43 @@ function calculateTravelEfficiency(schedule, config) {
   const averageDistance = teamCount > 0 ? totalDistance / teamCount : 0;
   
   // Normalize score (lower distance = higher score)
-  // This is simplified; a real implementation would use historical data for normalization
-  const normalizedScore = Math.max(100 - (averageDistance / 100), 0);
+  // Convert meters to kilometers and normalize
+  const averageDistanceKm = averageDistance / 1000;
+  
+  // Score decreases as distance increases, with reasonable bounds for conference travel
+  const normalizedScore = Math.max(100 - (averageDistanceKm / 100), 0);
   
   return normalizedScore;
 }
 
 /**
- * Calculate distance between two coordinate points
+ * Calculate distance between two coordinate points using Google Maps Distance Matrix API
  * @param {Object} point1 - First point {lat, lng}
  * @param {Object} point2 - Second point {lat, lng}
- * @returns {number} Distance in arbitrary units
+ * @returns {Promise<number>} Distance in meters
  */
-function calculateDistance(point1, point2) {
-  // Simple Euclidean distance calculation
-  // In a real implementation, this would use actual travel distances/times
+async function calculateDistance(point1, point2) {
+  try {
+    // Use our distance matrix service
+    const result = await distanceMatrixService.getDistance(point1, point2);
+    return result.distance.value; // meters
+  } catch (error) {
+    logger.error('Error calculating distance', { error });
+    return calculateEuclideanDistance(point1, point2);
+  }
+}
+
+/**
+ * Calculate simple Euclidean distance (fallback method)
+ * @param {Object} point1 - First point {lat, lng}
+ * @param {Object} point2 - Second point {lat, lng}
+ * @returns {number} Approximate distance in meters
+ */
+function calculateEuclideanDistance(point1, point2) {
   const latDiff = point1.lat - point2.lat;
   const lngDiff = point1.lng - point2.lng;
-  return Math.sqrt(latDiff * latDiff + lngDiff * lngDiff) * 100; // Scale for more realistic numbers
+  // Rough conversion to meters (varies by latitude)
+  return Math.sqrt(latDiff * latDiff + lngDiff * lngDiff) * 111319;
 }
 
 /**
@@ -663,4 +709,244 @@ function moveGameBetweenDays(schedule) {
   game.date = new Date(eligibleDays[newDayIndex]);
   
   return schedule;
+}
+
+/**
+ * Optimize schedule based on configuration priorities
+ * @param {Object} schedule - Schedule to optimize
+ * @param {Object} config - Configuration object
+ * @returns {Promise<Object>} Optimized schedule
+ */
+async function optimize(schedule, config) {
+  // Extract optimization factors from config
+  const factors = config.optimizationFactors || {
+    travelEfficiency: 1.0,
+    competitiveBalance: 1.0,
+    tvRevenue: 1.0,
+    studentWellbeing: 1.0
+  };
+  
+  logger.info('Starting schedule optimization', { factors });
+  
+  // Calculate current scores
+  const competitiveBalanceScore = calculateCompetitiveBalance(schedule, config);
+  const tvRevenueScore = calculateTVRevenuePotential(schedule, config);
+  const studentWellbeingScore = calculateStudentWellbeing(schedule, config);
+  const travelEfficiencyScore = await calculateTravelEfficiency(schedule, config);
+  
+  // Calculate initial weighted score
+  const initialScore = (
+    factors.competitiveBalance * competitiveBalanceScore +
+    factors.tvRevenue * tvRevenueScore +
+    factors.studentWellbeing * studentWellbeingScore +
+    factors.travelEfficiency * travelEfficiencyScore
+  ) / Object.values(factors).reduce((sum, factor) => sum + factor, 0);
+  
+  logger.info('Initial schedule optimization scores', {
+    overall: initialScore,
+    competitiveBalance: competitiveBalanceScore,
+    tvRevenue: tvRevenueScore,
+    studentWellbeing: studentWellbeingScore,
+    travelEfficiency: travelEfficiencyScore
+  });
+  
+  // Perform optimization iterations
+  let currentSchedule = { ...schedule };
+  let currentScore = initialScore;
+  
+  // Number of iterations for optimization
+  const MAX_ITERATIONS = 50;
+  
+  for (let i = 0; i < MAX_ITERATIONS; i++) {
+    // Generate possible schedule modifications
+    const candidates = generateCandidates(currentSchedule, config);
+    
+    // Evaluate each candidate
+    let bestCandidate = null;
+    let bestScore = currentScore;
+    
+    for (const candidate of candidates) {
+      // Calculate scores for this candidate
+      const candidateCompetitiveBalanceScore = calculateCompetitiveBalance(candidate, config);
+      const candidateTvRevenueScore = calculateTVRevenuePotential(candidate, config);
+      const candidateStudentWellbeingScore = calculateStudentWellbeing(candidate, config);
+      const candidateTravelEfficiencyScore = await calculateTravelEfficiency(candidate, config);
+      
+      // Calculate weighted score
+      const candidateScore = (
+        factors.competitiveBalance * candidateCompetitiveBalanceScore +
+        factors.tvRevenue * candidateTvRevenueScore +
+        factors.studentWellbeing * candidateStudentWellbeingScore +
+        factors.travelEfficiency * candidateTravelEfficiencyScore
+      ) / Object.values(factors).reduce((sum, factor) => sum + factor, 0);
+      
+      // Keep track of best candidate
+      if (candidateScore > bestScore) {
+        bestCandidate = candidate;
+        bestScore = candidateScore;
+      }
+    }
+    
+    // If we found a better schedule, use it for the next iteration
+    if (bestCandidate && bestScore > currentScore) {
+      currentSchedule = bestCandidate;
+      currentScore = bestScore;
+      
+      logger.debug(`Iteration ${i+1}: Found better schedule with score ${bestScore.toFixed(2)}`);
+    } else {
+      logger.debug(`Iteration ${i+1}: No improvement found`);
+    }
+  }
+  
+  // Final score calculation
+  const finalCompetitiveBalanceScore = calculateCompetitiveBalance(currentSchedule, config);
+  const finalTvRevenueScore = calculateTVRevenuePotential(currentSchedule, config);
+  const finalStudentWellbeingScore = calculateStudentWellbeing(currentSchedule, config);
+  const finalTravelEfficiencyScore = await calculateTravelEfficiency(currentSchedule, config);
+  
+  logger.info('Final schedule optimization scores', {
+    overall: currentScore,
+    competitiveBalance: finalCompetitiveBalanceScore,
+    tvRevenue: finalTvRevenueScore,
+    studentWellbeing: finalStudentWellbeingScore,
+    travelEfficiency: finalTravelEfficiencyScore,
+    improvement: ((currentScore - initialScore) / initialScore * 100).toFixed(2) + '%'
+  });
+  
+  return currentSchedule;
+}
+
+/**
+ * Apply geographic clustering to schedule
+ * @param {Object} schedule - Schedule to optimize
+ * @param {Object} config - Configuration object
+ * @returns {Object} Schedule with clustering applied
+ */
+function applyGeographicClustering(schedule, config) {
+  logger.info('Applying geographic clustering', { sport: config.sport });
+
+  // 1. Group teams by geographic region
+  const teams = config.teams || [];
+  
+  // Set up clustering options based on sport and configuration
+  const clusteringOptions = {
+    preferredPartners: true,
+    clusterRadius: getClusterRadiusBySport(config.sport),
+    balanceCompetitiveStrength: config.optimizationFactors?.competitiveBalance > 0.5,
+    allowStrategicOutliers: config.allowStrategicOutliers || false,
+  };
+  
+  // Add preferred partnerships if available
+  if (config.protectedRivalries && config.protectedRivalries.length > 0) {
+    clusteringOptions.preferredPartnerships = config.protectedRivalries.map(rivalry => ({
+      team1: rivalry.team1,
+      team2: rivalry.team2
+    }));
+  }
+  
+  // Add special constraints
+  if (config.constraints && config.constraints.length > 0) {
+    clusteringOptions.specialConstraints = [];
+    
+    // Process religious policy constraints
+    const religiousConstraints = config.constraints.filter(c => 
+      c.type === 'no_sunday_competition' || c.type === 'religious_policy'
+    );
+    
+    religiousConstraints.forEach(constraint => {
+      const teamId = constraint.teamId;
+      
+      // Set up preferred partners based on constraint
+      let preferredPartners = [];
+      
+      if (config.sport === 'basketball' && teamId === 'team1') { // BYU
+        // For BYU basketball, prefer Utah/Colorado
+        preferredPartners = ['team9', 'team10']; // Utah/Colorado team IDs
+      }
+      
+      clusteringOptions.specialConstraints.push({
+        type: 'religious_policy',
+        teamId: teamId,
+        preferredPartners: preferredPartners
+      });
+    });
+    
+    // Process venue sharing constraints
+    const venueConstraints = config.constraints.filter(c => c.type === 'venue_sharing');
+    
+    venueConstraints.forEach(constraint => {
+      clusteringOptions.specialConstraints.push({
+        type: 'venue_sharing',
+        teamIds: [constraint.team1Id, constraint.team2Id]
+      });
+    });
+    
+    // Process high travel cost constraints
+    const highTravelTeams = ['team7']; // West Virginia
+    
+    highTravelTeams.forEach(teamId => {
+      clusteringOptions.specialConstraints.push({
+        type: 'travel_cost',
+        teamId: teamId,
+        // For basketball, pair West Virginia with Cincinnati/UCF
+        preferredPartners: ['team6', 'team8'] // Cincinnati/UCF team IDs
+      });
+    });
+  }
+  
+  // Add team strengths if using competitive balance
+  if (clusteringOptions.balanceCompetitiveStrength && config.teamStrengths) {
+    clusteringOptions.teamStrengths = config.teamStrengths;
+  }
+  
+  // Get clusters
+  const clusters = clustering.groupTeamsByRegion(teams, clusteringOptions);
+  
+  // 2. For each cluster, schedule back-to-back road trips
+  let clusterOptimizedSchedule = deepCopy(schedule);
+  
+  clusters.forEach((cluster, index) => {
+    if (cluster.length >= 2) { // Only process valid clusters
+      logger.debug(`Processing cluster ${index + 1} with ${cluster.length} teams`);
+      clusterOptimizedSchedule = clustering.scheduleBackToBackRoadTrips(
+        cluster, 
+        clusterOptimizedSchedule, 
+        config
+      );
+    }
+  });
+  
+  // 3. Evaluate and log improvement
+  const originalTravelScore = calculateTravelEfficiency(schedule, config);
+  const optimizedTravelScore = calculateTravelEfficiency(clusterOptimizedSchedule, config);
+  
+  const improvement = ((optimizedTravelScore - originalTravelScore) / originalTravelScore) * 100;
+  
+  logger.info('Geographic clustering applied', {
+    clusterCount: clusters.length,
+    originalTravelScore: originalTravelScore.toFixed(2),
+    optimizedTravelScore: optimizedTravelScore.toFixed(2),
+    improvement: `${improvement.toFixed(2)}%`
+  });
+  
+  return clusterOptimizedSchedule;
+}
+
+/**
+ * Get appropriate cluster radius by sport
+ * @param {string} sport - Sport name
+ * @returns {number} Radius in miles
+ */
+function getClusterRadiusBySport(sport) {
+  // Different sports have different cluster radii
+  const sportRadii = {
+    'basketball': 300,  // Basketball: 300 miles
+    'football': 500,    // Football: 500 miles (less frequent games)
+    'baseball': 250,    // Baseball: 250 miles (series play)
+    'volleyball': 300,  // Volleyball: 300 miles
+    'soccer': 300,      // Soccer: 300 miles
+    'wrestling': 350    // Wrestling: 350 miles
+  };
+  
+  return sportRadii[sport.toLowerCase()] || 300; // Default to 300 miles
 } 

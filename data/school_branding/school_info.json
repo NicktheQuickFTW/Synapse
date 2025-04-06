@@ -1,0 +1,98 @@
+{
+  "arizona_state": {
+    "name": "Arizona State Sun Devils",
+    "logo_svg": "images/svgs/arizona_state_sun_devils.svg",
+    "primary_color": "#8c1d40",
+    "secondary_color": "#ffc627"
+  },
+  "arizona": {
+    "name": "Arizona Wildcats",
+    "logo_svg": "images/svgs/arizona_wildcats.svg",
+    "primary_color": "#C10230",
+    "secondary_color": "#00205C"
+  },
+  "houston": {
+    "name": "Houston Cougars",
+    "logo_svg": "images/svgs/houston_cougars.svg",
+    "primary_color": "#c92a39",
+    "secondary_color": null
+  },
+  "baylor": {
+    "name": "Baylor Bears",
+    "logo_svg": "images/svgs/baylor_bears.svg",
+    "primary_color": "#154734",
+    "secondary_color": "#FFB81C"
+  },
+  "byu": {
+    "name": "BYU Cougars",
+    "logo_svg": "images/svgs/byu_cougars.svg",
+    "primary_color": "#002255",
+    "secondary_color": "#FFFFFF"
+  },
+  "ucf": {
+    "name": "UCF Knights",
+    "logo_svg": "images/svgs/ucf_knights.svg",
+    "primary_color": "#b7a369",
+    "secondary_color": "#000000"
+  },
+  "cincinnati": {
+    "name": "Cincinnati Bearcats",
+    "logo_svg": "images/svgs/cincinnati_bearcats.svg",
+    "primary_color": "#e00122",
+    "secondary_color": "#000000"
+  },
+  "colorado": {
+    "name": "Colorado Buffaloes",
+    "logo_svg": "images/svgs/colorado_buffaloes.svg",
+    "primary_color": "#cfb87c",
+    "secondary_color": "#000000"
+  },
+  "iowa_state": {
+    "name": "Iowa State Cyclones",
+    "logo_svg": "images/svgs/iowa_state_cyclones.svg",
+    "primary_color": "#a71930",
+    "secondary_color": "#fdc82f"
+  },
+  "kansas": {
+    "name": "Kansas Jayhawks",
+    "logo_svg": "images/svgs/kansas_jayhawks.svg",
+    "primary_color": "#0051ba",
+    "secondary_color": "#e8000d"
+  },
+  "kansas_state": {
+    "name": "Kansas State Wildcats",
+    "logo_svg": "images/svgs/kansas_state_wildcats.svg",
+    "primary_color": "#512888",
+    "secondary_color": "#D1D1D1"
+  },
+  "oklahoma_state": {
+    "name": "Oklahoma State Cowboys",
+    "logo_svg": "images/svgs/oklahoma_state_cowboys.svg",
+    "primary_color": "#fe5c00",
+    "secondary_color": "#000000"
+  },
+  "tcu": {
+    "name": "TCU Horned Frogs",
+    "logo_svg": "images/svgs/tcu_horned_frogs.svg",
+    "primary_color": "#4d1979",
+    "secondary_color": "#FFFFFF"
+  },
+  "texas_tech": {
+    "name": "Texas Tech Red Raiders",
+    "logo_svg": "images/svgs/texas_tech_red_raiders.svg",
+    "primary_color": "#cc0000",
+    "secondary_color": "#000000"
+  },
+  "utah": {
+    "name": "Utah Utes",
+    "logo_svg": "images/svgs/utah_utes.svg",
+    "primary_color": "#cc0000",
+    "secondary_color": "#000000"
+  },
+  "west_virginia": {
+    "name": "West Virginia Mountaineers",
+    "logo_svg": "images/svgs/west_virginia_mountaineers.svg",
+    "primary_color": "#002855",
+    "secondary_color": "#eaaa00"
+  }
+}

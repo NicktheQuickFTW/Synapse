@@ -25,3 +25,6 @@ This module handles all aspects of athletic competition management for the Big 1
 - Machine Learning models for schedule optimization
 - Graph algorithms for constraint satisfaction
 - Real-time notification system
+
+## Context Priming
+> Read README.md, CLAUDE.md, ai_docs/*, and run git ls-files to understand this codebase.

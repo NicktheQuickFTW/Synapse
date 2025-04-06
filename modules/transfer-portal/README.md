@@ -1,3 +1,35 @@
+# Transfer Portal Module
+
+This directory contains the core business logic for the Transfer Portal application.
+
+## Directory Structure
+
+- `agents/` - Data collection agents that scrape or fetch transfer data from external sources
+  - `on3_agent.py` - Agent for On3 website
+  - `rivals_agent.py` - Agent for Rivals website
+  - `sports247_agent.py` - Agent for 247Sports website
+- `services/` - Business logic services
+  - Core functionality that can be used by both backend and frontend
+
+## Agent Usage
+
+The agents in this module are responsible for data collection from various sports recruiting and transfer portal sites. They implement the BaseTransferPortalAgent interface.
+
+Example usage:
+
+```python
+from modules.transfer-portal.agents.on3_agent import On3TransferPortalAgent
+
+agent = On3TransferPortalAgent()
+data = agent.fetch_transfers(sport="basketball")
+```
+
+## Technology Stack
+
+- Python
+- Beautiful Soup (for web scraping)
+- Requests (for HTTP requests)
+
 # Transfer Portal & NIL Management Module
 
 This module provides functionality for managing transfer portal data and NIL valuations for the Big 12 Conference.

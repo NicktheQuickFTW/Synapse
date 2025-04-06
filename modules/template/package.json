@@ -1,0 +1,38 @@
+{
+  "name": "@xii-os/module-template",
+  "version": "1.0.0",
+  "description": "Template for XII-OS modules",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "lint": "eslint . --ext .ts",
+    "format": "prettier --write \"**/*.ts\"",
+    "prepare": "npm run build"
+  },
+  "keywords": [
+    "xii-os",
+    "module",
+    "template"
+  ],
+  "author": "XII OS Team",
+  "license": "MIT",
+  "dependencies": {
+    "@xii-os/core-db": "^1.0.0",
+    "dotenv": "^16.0.3"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.0.0",
+    "@types/node": "^18.0.0",
+    "@typescript-eslint/eslint-plugin": "^5.0.0",
+    "@typescript-eslint/parser": "^5.0.0",
+    "eslint": "^8.0.0",
+    "jest": "^29.0.0",
+    "prettier": "^2.0.0",
+    "ts-jest": "^29.0.0",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.0.0"
+  }
+} 

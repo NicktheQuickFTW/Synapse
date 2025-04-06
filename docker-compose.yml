@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  # Database
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: ${DB_USER:-xii_os}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-development}
+      POSTGRES_DB: ${DB_NAME:-xii_os_dev}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  # Core Dashboard
+  dashboard:
+    build:
+      context: ./xii-os-dashboard
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ./xii-os-dashboard:/app
+      - /app/node_modules
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - DB_HOST=postgres
+      - DB_USER=${DB_USER:-xii_os}
+      - DB_PASSWORD=${DB_PASSWORD:-development}
+      - DB_NAME=${DB_NAME:-xii_os_dev}
+    depends_on:
+      - postgres
+
+  # Transfer Portal Module
+  transfer-portal:
+    build:
+      context: ./xii-os-transfer-portal-module
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ./xii-os-transfer-portal-module:/app
+      - /app/node_modules
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=development
+      - DB_HOST=postgres
+    depends_on:
+      - postgres
+
+  # GitHub Module
+  github-module:
+    build:
+      context: ./xii-os-github-module
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ./xii-os-github-module:/app
+      - /app/node_modules
+    ports:
+      - "3002:3002"
+    environment:
+      - NODE_ENV=development
+      - DB_HOST=postgres
+    depends_on:
+      - postgres
+
+volumes:
+  postgres_data: 
