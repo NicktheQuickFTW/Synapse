@@ -5,7 +5,7 @@
  * of the new system prompt for enhanced scheduling capabilities.
  */
 
-const flextime = require('./modules/flextime');
+const flextime = require('../modules/flextime');
 const fs = require('fs');
 const path = require('path');
 

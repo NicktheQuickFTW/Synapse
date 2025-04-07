@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  dev:
+    build:
+      context: .
+      dockerfile: .devcontainer/Dockerfile
+    volumes:
+      - .:/workspaces/XII-OS
+      - /workspaces/XII-OS/node_modules
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    cap_add:
+      - SYS_ADMIN
+    security_opt:
+      - seccomp=unconfined
+    command: sleep infinity 

@@ -48,6 +48,14 @@ module-name/
   - Integration points
 - [Documentation](./xii-os-core-db.md)
 
+### xii-os-transfer-portal-tracker
+- Purpose: Track and analyze player transfers
+- Features:
+  - Real-time transfer monitoring
+  - Analytics dashboard
+  - Data collection agents
+- [Documentation](./xii-os-transfer-portal-tracker.md)
+
 ### xii-os-supabase-db
 - Purpose: Supabase integration
 - Features:

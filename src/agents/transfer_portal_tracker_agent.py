@@ -27,7 +27,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Initialize FastAPI app
-app = FastAPI(title="Basketball Transfer Portal Agent")
+app = FastAPI(title="Basketball Transfer Portal Tracker Agent")
 
 # Cache for storing player data
 player_cache = {
@@ -60,52 +60,61 @@ class Player(BaseModel):
     profile_url: Optional[str] = None
     nil_valuation: Optional[float] = None
 
-class BasketballTransferPortalAgent:
+class TransferPortalTrackerAgent:
     def __init__(self):
         self.cache_expiry = CACHE_EXPIRY
         self.on3_agent = On3TransferPortalAgent()
         self.sports247_agent = Sports247TransferPortalAgent()
         self.rivals_agent = RivalsTransferPortalAgent()
+        self.data = []
+        self.last_refresh = None
 
     async def refresh_data(self):
-        """Refresh the player data from the transfer portal."""
-        current_time = time.time()
-        if current_time - player_cache["last_updated"] < self.cache_expiry:
-            logger.info("Using cached data")
-            return player_cache["data"]
+        """Refresh the player data from the transfer portal tracker."""
+        try:
+            current_time = time.time()
+            if current_time - player_cache["last_updated"] < self.cache_expiry:
+                logger.info("Using cached data")
+                return player_cache["data"]
 
-        all_players = []
-        
-        if USE_ON3:
-            try:
-                on3_players = await self.on3_agent.scrape_players()
-                all_players.extend(on3_players)
-            except Exception as e:
-                logger.error(f"Error scraping On3: {str(e)}")
-        
-        if USE_247SPORTS:
-            try:
-                sports247_players = await self.sports247_agent.scrape_players()
-                all_players.extend(sports247_players)
-            except Exception as e:
-                logger.error(f"Error scraping 247Sports: {str(e)}")
-        
-        if USE_RIVALS:
-            try:
-                rivals_players = await self.rivals_agent.scrape_players()
-                all_players.extend(rivals_players)
-            except Exception as e:
-                logger.error(f"Error scraping Rivals: {str(e)}")
-        
-        if not all_players:
-            raise HTTPException(status_code=500, detail="Failed to refresh transfer portal data from any source")
-        
-        # Update cache
-        player_cache["data"] = all_players
-        player_cache["last_updated"] = current_time
-        
-        logger.info(f"Successfully refreshed data for {len(all_players)} players")
-        return all_players
+            all_players = []
+            
+            if USE_ON3:
+                try:
+                    on3_players = await self.on3_agent.scrape_players()
+                    all_players.extend(on3_players)
+                except Exception as e:
+                    logger.error(f"Error scraping On3: {str(e)}")
+            
+            if USE_247SPORTS:
+                try:
+                    sports247_players = await self.sports247_agent.scrape_players()
+                    all_players.extend(sports247_players)
+                except Exception as e:
+                    logger.error(f"Error scraping 247Sports: {str(e)}")
+            
+            if USE_RIVALS:
+                try:
+                    rivals_players = await self.rivals_agent.scrape_players()
+                    all_players.extend(rivals_players)
+                except Exception as e:
+                    logger.error(f"Error scraping Rivals: {str(e)}")
+            
+            if not all_players:
+                raise HTTPException(status_code=500, detail="Failed to refresh transfer portal data from any source")
+            
+            # Update cache
+            player_cache["data"] = all_players
+            player_cache["last_updated"] = current_time
+            
+            logger.info(f"Successfully refreshed data for {len(all_players)} players")
+            return all_players
+        except Exception as e:
+            logger.error(f"Failed to refresh data: {str(e)}")
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to refresh transfer portal tracker data from any source"
+            )
 
     def _parse_stats(self, stats_text: str) -> Optional[Dict[str, float]]:
         """Parse player statistics from text."""
@@ -136,9 +145,10 @@ class BasketballTransferPortalAgent:
             return None
 
     async def get_players(self) -> List[Player]:
-        """Get all transfer portal players."""
-        data = await self.refresh_data()
-        return [Player(**player) for player in data]
+        """Get all transfer portal tracker players."""
+        if not self.data:
+            await self.refresh_data()
+        return [Player(**player) for player in self.data]
 
     async def search_players(
         self,
@@ -178,12 +188,17 @@ class BasketballTransferPortalAgent:
         return [Player(**player) for player in filtered_players]
 
 # Initialize the agent
-agent = BasketballTransferPortalAgent()
+agent = TransferPortalTrackerAgent()
+
+@app.on_event("startup")
+async def startup_event():
+    logger.info("Starting Basketball Transfer Portal Tracker Agent on port 3000...")
+    await agent.refresh_data()
 
 # API endpoints
 @app.get("/players", response_model=List[Player])
 async def get_players():
-    """Get all transfer portal players."""
+    """Get all transfer portal tracker players."""
     logger.info("Received request for all players")
     try:
         players = await agent.get_players()
@@ -231,7 +246,6 @@ async def search_players(
 
 if __name__ == "__main__":
     import uvicorn
-    logger.info("Starting Basketball Transfer Portal Agent on port 3000...")
     try:
         uvicorn.run(app, host="127.0.0.1", port=3000, log_level="debug")
     except Exception as e:

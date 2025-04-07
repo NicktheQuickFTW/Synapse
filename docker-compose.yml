@@ -32,13 +32,13 @@ services:
     depends_on:
       - postgres
 
-  # Transfer Portal Module
-  transfer-portal:
+  # Transfer Portal Tracker
+  transfer-portal-tracker:
     build:
-      context: ./xii-os-transfer-portal-module
+      context: ./xii-os-transfer-portal-tracker
       dockerfile: Dockerfile.dev
     volumes:
-      - ./xii-os-transfer-portal-module:/app
+      - ./xii-os-transfer-portal-tracker:/app
       - /app/node_modules
     ports:
       - "3001:3001"

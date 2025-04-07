@@ -2,6 +2,9 @@
   "name": "XII-OS Development",
   "dockerFile": "Dockerfile",
   "forwardPorts": [3000, 5432],
+  "workspaceFolder": "/workspaces/XII-OS",
+  "remoteUser": "root",
+  
   "customizations": {
     "vscode": {
       "extensions": [
@@ -12,9 +15,50 @@
         "ms-azuretools.vscode-docker",
         "eamodio.gitlens",
         "streetsidesoftware.code-spell-checker"
-      ]
+      ],
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "terminal.integrated.profiles.linux": {
+          "bash": {
+            "path": "/bin/bash"
+          }
+        },
+        "python.defaultInterpreterPath": "/opt/venv/bin/python",
+        "python.pythonPath": "/opt/venv/bin/python"
+      }
     }
   },
-  "postCreateCommand": "npm install && pip install -r requirements.txt",
-  "remoteUser": "node"
+
+  "features": {
+    "ghcr.io/devcontainers/features/python:1": {
+      "version": "3.11"
+    },
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "18"
+    },
+    "ghcr.io/devcontainers/features/git:1": {},
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+
+  "initializeCommand": {
+    "pre-copy": "mkdir -p /workspaces/XII-OS"
+  },
+
+  "onCreateCommand": "pip install --upgrade pip",
+  
+  "postCreateCommand": "cd /workspaces/XII-OS && npm install && pip install -r requirements.txt && playwright install chromium",
+  
+  "remoteEnv": {
+    "PATH": "${containerEnv:PATH}:/opt/venv/bin",
+    "PLAYWRIGHT_BROWSERS_PATH": "/ms-playwright"
+  },
+
+  "mounts": [
+    "source=${localWorkspaceFolder},target=/workspaces/XII-OS,type=bind,consistency=cached"
+  ],
+
+  "runArgs": [
+    "--cap-add=SYS_ADMIN",
+    "--security-opt=seccomp=unconfined"
+  ]
 } 

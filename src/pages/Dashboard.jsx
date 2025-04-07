@@ -36,7 +36,7 @@ const performanceData = [
 
 // Sample modules data
 const modulesData = [
-  { id: 1, name: 'Transfer Portal', status: 'Active', version: '1.2.3' },
+  { id: 1, name: 'Transfer Portal Tracker', status: 'Active', version: '1.2.3' },
   { id: 2, name: 'Flextime', status: 'Active', version: '2.0.1' },
   { id: 3, name: 'Weather Intelligence', status: 'Inactive', version: '0.9.5' },
   { id: 4, name: 'Content Management', status: 'Active', version: '1.5.0' },
@@ -44,7 +44,7 @@ const modulesData = [
 
 // Sample events data
 const recentEvents = [
-  { id: 1, type: 'Module Update', module: 'Transfer Portal', time: '2 hours ago' },
+  { id: 1, type: 'Module Update', module: 'Transfer Portal Tracker', time: '2 hours ago' },
   { id: 2, type: 'User Login', user: 'admin', time: '4 hours ago' },
   { id: 3, type: 'API Request', endpoint: '/api/data', time: '5 hours ago' },
   { id: 4, type: 'System Notification', message: 'Backup completed', time: '1 day ago' },

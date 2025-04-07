@@ -1,41 +1,52 @@
-FROM node:18-bullseye
+FROM alpine:3.19
 
-# Install Python and pip
-RUN apt-get update && apt-get install -y \
+# Install Node.js, Python, and other dependencies
+RUN apk add --no-cache \
+    nodejs \
+    npm \
     python3 \
-    python3-pip \
-    python3-venv \
+    python3-dev \
+    py3-pip \
     postgresql-client \
-    && rm -rf /var/lib/apt/lists/*
+    postgresql-dev \
+    bash \
+    git \
+    gcc \
+    musl-dev \
+    linux-headers \
+    curl \
+    make \
+    g++ \
+    chromium \
+    nss \
+    freetype \
+    freetype-dev \
+    harfbuzz \
+    ca-certificates \
+    ttf-freefont \
+    jpeg-dev \
+    zlib-dev \
+    libffi-dev \
+    && rm -rf /var/cache/apk/*
 
-# Create app directory
-WORKDIR /app
+# Create app directory and set working directory
+WORKDIR /workspaces/XII-OS
 
-# Copy package files
-COPY package*.json ./
-
-# Install dependencies
-RUN npm install
-
-# Copy requirements.txt
-COPY requirements.txt ./
-
-# Create and activate virtual environment
+# Create Python virtual environment
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Set Playwright browser path
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+RUN mkdir -p /ms-playwright
 
-# Copy the rest of the application
-COPY . .
-
-# Create necessary directories
+# Create log directories
 RUN mkdir -p logs/{development,production,monitoring}
 
 # Set environment variables
 ENV NODE_ENV=development
-ENV PYTHONPATH=/app
+ENV PYTHONPATH=/workspaces/XII-OS
+ENV PYTHONUNBUFFERED=1
 
 # Expose ports
 EXPOSE 3000

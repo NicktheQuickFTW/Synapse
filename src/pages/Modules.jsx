@@ -31,11 +31,11 @@ import StopIcon from '@mui/icons-material/Stop';
 const initialModules = [
   {
     id: 1,
-    name: 'Transfer Portal',
+    name: 'Transfer Portal Tracker',
     description: 'Manages athlete transfer portal data and analytics',
     status: 'active',
     version: '1.2.3',
-    repo_url: 'https://github.com/xii-os/transfer-portal',
+    repo_url: 'https://github.com/xii-os/transfer-portal-tracker',
   },
   {
     id: 2,

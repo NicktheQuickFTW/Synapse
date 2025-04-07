@@ -2,10 +2,10 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 const { logger } = require('../utils/logger');
 
-class TransferPortalService {
+class TransferPortalTrackerService {
     constructor() {
-        this.baseUrl = 'https://www.on3.com/transfer-portal/wire/basketball/';
-        this.topPlayersUrl = 'https://www.on3.com/transfer-portal/industry/basketball/';
+        this.baseUrl = 'https://www.on3.com/transfer-portal-tracker/wire/basketball/';
+        this.topPlayersUrl = 'https://www.on3.com/transfer-portal-tracker/industry/basketball/';
         this.headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
@@ -14,49 +14,54 @@ class TransferPortalService {
             'sec-ch-ua-mobile': '?0',
             'sec-ch-ua-platform': '"Windows"'
         };
+
+        try {
+            // Initialize service
+            this.init();
+            logger.info('Transfer portal tracker service initialized successfully');
+        } catch (error) {
+            logger.error('Failed to initialize transfer portal tracker service:', error);
+            throw error;
+        }
     }
 
-    async initialize() {
+    async init() {
         try {
             // Test the connection
             await axios.get(this.baseUrl, { headers: this.headers });
-            logger.info('Transfer portal service initialized successfully');
         } catch (error) {
-            logger.error('Failed to initialize transfer portal service:', error);
+            logger.error('Failed to initialize transfer portal tracker service:', error);
             throw error;
         }
     }
 
-    async getTransferData() {
+    async fetchData() {
         try {
-            logger.info('Fetching transfer portal data...');
+            logger.info('Fetching transfer portal tracker data...');
             
-            // Fetch main transfer portal page
-            const mainResponse = await axios.get(this.baseUrl, { headers: this.headers });
-            const mainPlayers = await this._extractPlayersFromPage(mainResponse.data);
+            // Fetch main transfer portal tracker page
+            const response = await axios.get(this.baseUrl, { headers: this.headers });
+            const html = response.data;
             
-            // Fetch top players page
-            const topResponse = await axios.get(this.topPlayersUrl, { headers: this.headers });
-            const topPlayers = await this._extractPlayersFromPage(topResponse.data, true);
-            
-            // Merge the data
-            const mergedPlayers = this._mergePlayerLists(mainPlayers, topPlayers);
+            // Parse the data
+            const $ = cheerio.load(html);
+            const players = await this._extractPlayersFromPage(html);
             
             return {
                 last_updated: new Date().toISOString(),
-                players: mergedPlayers
+                players: players
             };
         } catch (error) {
-            logger.error('Failed to fetch transfer data:', error);
+            logger.error('Error fetching data:', error);
             throw error;
         }
     }
 
-    async _extractPlayersFromPage(html, includeRanking = false) {
+    async _extractPlayersFromPage(html) {
         const $ = cheerio.load(html);
         const players = [];
 
-        $('.transfer-portal-card').each((i, card) => {
+        $('.transfer-portal-tracker-card').each((i, card) => {
             try {
                 const $card = $(card);
                 
@@ -80,10 +85,6 @@ class TransferPortalService {
                 // Extract profile URL
                 const profileUrl = $card.find('a').attr('href') || null;
                 
-                // Extract ranking if needed
-                const ranking = includeRanking ? 
-                    this._parseRanking($card.find('.player-ranking').text()) : null;
-                
                 // Create player object
                 const player = {
                     name,
@@ -92,7 +93,6 @@ class TransferPortalService {
                     class_year: classYear,
                     previous_school: previousSchool,
                     stats,
-                    ranking,
                     profile_url: profileUrl,
                     transfer_date: new Date().toISOString(),
                     status: 'in portal',
@@ -148,4 +148,4 @@ class TransferPortalService {
     }
 }
 
-module.exports = { TransferPortalService }; 
+export default new TransferPortalTrackerService(); 

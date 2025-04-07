@@ -13,7 +13,7 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 // API Routes
-app.use('/api/transfer-portal', transferPortalRoutes);
+app.use('/api/transfer-portal-tracker', transferPortalRoutes);
 
 // Serve the React app for all other routes
 app.get('*', (req, res) => {

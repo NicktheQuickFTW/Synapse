@@ -96,8 +96,8 @@ const checkDbConnection = async (req, res, next) => {
 router.use(checkDbConnection);
 
 /**
- * GET /api/transfer-portal
- * Get all transfer portal entries with optional filters
+ * GET /api/transfer-portal-tracker
+ * Get all transfer portal tracker entries with optional filters
  */
 router.get('/', async (req, res, next) => {
   try {
@@ -187,13 +187,17 @@ router.get('/', async (req, res, next) => {
       }
     });
   } catch (error) {
-    next(error);
+    console.error('Transfer portal tracker error:', {
+      message: error.message,
+      stack: error.stack
+    });
+    res.status(500).json({ error: error.message });
   }
 });
 
 /**
- * GET /api/transfer-portal/stats
- * Get transfer portal statistics
+ * GET /api/transfer-portal-tracker/stats
+ * Get transfer portal tracker statistics
  */
 router.get('/stats', async (req, res) => {
   try {
@@ -324,8 +328,8 @@ router.get('/stats', async (req, res) => {
 });
 
 /**
- * GET /api/transfer-portal/trending
- * Get trending transfers based on recent activity
+ * GET /api/transfer-portal-tracker/trending
+ * Get trending transfers
  */
 router.get('/trending', async (req, res) => {
   try {
@@ -352,8 +356,8 @@ router.get('/trending', async (req, res) => {
 });
 
 /**
- * GET /api/transfer-portal/search
- * Search transfers by various criteria
+ * GET /api/transfer-portal-tracker/search
+ * Search for players
  */
 router.get('/search', async (req, res) => {
   try {
@@ -405,8 +409,8 @@ router.get('/search', async (req, res) => {
 });
 
 /**
- * GET /api/transfer-portal/compare
- * Compare two or more players
+ * GET /api/transfer-portal-tracker/compare
+ * Compare players
  */
 router.get('/compare', async (req, res) => {
   try {
@@ -457,8 +461,8 @@ router.get('/compare', async (req, res) => {
 });
 
 /**
- * GET /api/transfer-portal/team-analysis
- * Get detailed analysis of transfers for a specific team
+ * GET /api/transfer-portal-tracker/team-analysis
+ * Get team analysis
  */
 router.get('/team-analysis', async (req, res) => {
   try {
@@ -526,8 +530,8 @@ router.get('/team-analysis', async (req, res) => {
 });
 
 /**
- * GET /api/transfer-portal/predictions
- * Get transfer predictions based on historical data
+ * GET /api/transfer-portal-tracker/predictions
+ * Get transfer predictions
  */
 router.get('/predictions', async (req, res) => {
   try {
