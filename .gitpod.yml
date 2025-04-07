@@ -1,0 +1,16 @@
+image:
+  file: .gitpod.Dockerfile
+
+ports:
+  - port: 4000
+    onOpen: open-preview
+    description: Jekyll Server
+  - port: 35729
+    onOpen: ignore
+    description: Live Reload Server
+
+tasks:
+  - init: |
+      bundle install
+      jekyll --version
+    command: bundle exec jekyll serve 
