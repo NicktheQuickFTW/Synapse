@@ -38,7 +38,7 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "recharts": "^2.6.2",
-    "xlsx": "^0.18.5"
+    "exceljs": "^4.4.0"
   },
   "devDependencies": {
     "@babel/core": "^7.26.10",
@@ -70,8 +70,8 @@
     "prettier": "^3.2.5",
     "style-loader": "^4.0.0",
     "typescript": "^5.4.2",
-    "vite": "^6.2.4",
-    "vitepress": "^1.0.0-rc.45",
+    "vite": "^5.1.6",
+    "vitepress": "^1.0.0",
     "vitest": "^1.4.0",
     "webpack": "^5.98.0",
     "webpack-cli": "^5.1.4"
